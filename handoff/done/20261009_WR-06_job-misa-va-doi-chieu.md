@@ -3,7 +3,7 @@ Mạch: WR - báo cáo công nợ phải thu hằng tuần
 Nối tiếp: WR-05
 Người làm: claude
 Người soát: codex
-Trạng thái: chờ-soát
+Trạng thái: đóng-đạt
 Vòng: 1/2
 
 ## ĐỀ BÀI
@@ -56,8 +56,8 @@ W40 thật (chạy trên máy ảo, bản sao sổ ghi):
 
 Giả định kỹ thuật: (phiếu mở trước v2.0, chưa ghi theo khuôn ba dòng)
 
-Soát: chưa — chờ codex (phiếu chuyển từ chuẩn v1.1 sang v2.0 ở WR-10; các ô ký theo vai cũ không còn hiệu lực).
-Kết quả:
+Soát: user — đóng theo lệnh user 2026-11-05 ("các ticket đang mở cái nào xong thì close & move vào done"). Bằng chứng: Báo cáo W43 (chạy lại 29/10) và W44 (30/10) do Task Scheduler trên máy FIN sinh ra, dùng thật trong tuần (handoff/docs/Cong-No-Workspace (W44): runner.log, 2026_W44_Credit_Report_24.10-30.10.2026.xlsx — 55 khách, phải thu 13.099.776.819; Sales đã ghi lý do tuần này vào file). Không qua codex soát (lệch mục 0/9 của chuẩn, user quyết).
+Kết quả: ĐẠT
 -- claude - 2026-10-27 11:40 UTC+7
 
 ## HISTORY
@@ -84,3 +84,8 @@ SAU ngày cuối kỳ thì ghép với Tổng hợp gần nhất và cắt bỏ 
 Một file Chi tiết dùng cho nhiều kỳ thì chỉ đổi tên [DONE] sau kỳ cuối. Phép thử mới. Chạy thật 6
 file W41: ra báo cáo W41 (67 khách, 14.468.170.611). Failure: luật "cùng kỳ" quá chặt so với cách
 FIN xuất. Lessons: đầu vào do người xuất tay thì nhận khoảng rộng hơn rồi tự cắt, đừng bắt khớp tuyệt đối.
+### 2026-11-05
+Failure: không
+Báo lỗi giả: không
+Lessons: đóng phiếu theo lệnh user sau khi tool chạy thật W43–W44 trên máy FIN.
+-- claude - 2026-11-05 10:05 UTC+7

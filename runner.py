@@ -351,7 +351,7 @@ def chay_full(
                         "Đối chiếu.")
     credit_terms = ghep.doc_credit_term(thu_muc_mau)
     # WR-08 (user 13/10): cảnh báo hợp đồng / credit term từ Client Master → sheet Contracts + Summary
-    # WR-11: đọc TRƯỚC khi tính — hạn mức nợ, "Không nâng hạng màu", "Đã có hợp đồng" dùng cho màu ở AR Risk
+    # đọc TRƯỚC khi tính — hạn mức nợ, "Đã có hợp đồng", link hợp đồng (WR-14 sẽ dùng cho tiêu chí FIN)
     from wr import khachhang
     # WR-12 (user 28/10): file credit term còn mẫu cũ (thiếu cột / sheet tên cũ) → tool tự nâng lên mẫu mới ngay đầu lần
     # chạy, kể cả tuần không có khách mới. Cùng điều kiện an toàn: chỉ thêm cột, sao lưu trước, file đang mở thì để sau.
@@ -367,11 +367,9 @@ def chay_full(
     master = khachhang.doc_master(thu_muc_mau, ngay_chot)
     co_cot_hd = any(m.get("co_hd") is not None for m in master.values())
     if master and not co_cot_hd:
-        canh_bao.append("File credit term chưa có cột 'Đã có hợp đồng' (mẫu cũ): chưa đếm được khách chưa có hợp đồng, màu "
-                        "chưa nâng theo tiêu chí này. Chạy tools/nang_cap_credit_term.py một lần.")
-    if master and not any(m.get("han_muc") for m in master.values()):
-        canh_bao.append("File credit term chưa có Hạn mức nợ cho khách nào: màu chưa nâng theo tiêu chí "
-                        "'dư nợ vượt hạn mức'.")
+        canh_bao.append("File credit term chưa có cột 'Đã có hợp đồng' (mẫu cũ): chưa đếm được khách chưa có hợp đồng. "
+                        "Chạy tools/nang_cap_credit_term.py một lần.")
+    # WR-13: hạn mức nợ chưa dùng để xếp mức (tiêu chí TC2 chờ Client Master, WR-14) → không cảnh báo nữa
     kq = tindung.tinh_full(th, ct, so, dong_sms, bang, pt, ngay_chot, job_no_cu=job_no_cu, job_misa=job_misa,
                            credit_terms=credit_terms, ma_no_cu=ghep.ma_job_no_cu(thu_muc_mau), master=master)
     kq.master = master
@@ -412,7 +410,9 @@ def chay_full(
         "khach_chua_hd": (sum(1 for r in kq.rui_ro if r.co_hd is False) if co_cot_hd else None),
         "khach_chua_master": dem(lambda x: x == khachhang.LOAI_CHUA_MASTER),
         "khach_chua_han_muc": sum(1 for r in kq.rui_ro if not r.han_muc),
-        **{f"mau_{i}": sum(1 for r in kq.rui_ro if r.muc == i) for i in range(5)},
+        **{f"muc_{i}": sum(1 for r in kq.rui_ro if r.muc_fin == i) for i in (1, 2, 3)},
+        "no_rui_ro_cao": round(sum(r.cuoi_ky for r in kq.rui_ro if r.muc_fin == 3), 2),
+        "hang_d": sum(1 for r in kq.rui_ro if r.hang == "D"),
         "sales_chua_giai_trinh": len({r.salesman or "(chưa có Sales)" for r in kq.rui_ro
                                       if r.qua_han > 0.5 and r.s[3]}),
     })

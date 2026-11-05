@@ -194,3 +194,7 @@ body{background:radial-gradient(1200px 600px at 10% -10%,#efe7fa 0,transparent 6
 }
 [hidden]{display:none!important}
 body{min-height:100vh}
+
+/* WR-13: mức độ FIN — kiểu Excel Good / Neutral / Bad */
+.muc{display:inline-block;padding:1px 8px;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap}
+.muc-1{background:#C6EFCE;color:#006100}.muc-2{background:#FFEB9C;color:#9C5700}.muc-3{background:#FFC7CE;color:#9C0006}

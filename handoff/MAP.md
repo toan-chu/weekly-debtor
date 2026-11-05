@@ -75,9 +75,9 @@ Không có file Chi tiết mà có file Tuổi nợ cũ → chạy luật v0.3 (
 | Sheet | Một dòng là | Nguồn |
 |---|---|---|
 | Summary | 1 tuần (tuần này + mọi tuần trước) | tổng hợp các sheet dưới + sổ ghi |
-| Receivables | 1 khách còn nợ: tuổi nợ, Salesman, Job Number, lý do; dòng con (gập) = job SMS + Sales + số tiền, dòng cân đối | ①②③ |
+| Receivables | 1 khách còn nợ: ô Risk level (công thức INDEX sang AR Risk, WR-13), tuổi nợ, Salesman, Job Number, lý do tuần trước / tuần này, 3 ô Sales đánh giá (WR-13); dòng con (gập) = job + hoá đơn + hạn + Sales + số tiền, dòng cân đối. Vị trí cột: hằng số `thuonghieu.C_*`, `COT_DANH_GIA` — đừng gán cứng số cột | ①②③ |
 | Invoices | 1 hoá đơn còn nợ: ngày, hạn, số ngày quá hạn, nhóm; cộng theo khách = Total | ② |
-| AR Risk | 1 khách: đầu kỳ, tăng, giảm, cuối kỳ, so tuần trước, S1..S6, nhóm rủi ro, xu hướng | ④ |
+| AR Risk | 1 khách: đầu kỳ, tăng, giảm, cuối kỳ, so tuần trước, S1..S7, nhóm rủi ro N0–N4, xu hướng; WR-13: ngày quá hạn lớn nhất, nhóm khách, mức FIN (công thức `ghifull.cong_thuc_fin`), căn cứ, hình thức thanh toán, phương án, điểm + hạng A–D | ④ |
 | Payable | 1 vendor: đầu kỳ, nợ mới, đã trả, cuối kỳ, trạng thái | ⑤ |
 | Cash Flow | 1 khách đã trả / 1 vendor đã được trả trong tuần | ⑥ |
 | Methodology | 1 con số: tính thế nào, lấy từ file nào cột nào | cố định trong mã |
@@ -92,6 +92,11 @@ mẫu trong `sample/` (`ghep.doc_credit_term`), file mẫu dựng bằng `wr/kha
 chưa có trong Client Master, cột C–F, để FIN dán) (`ghifull.ghi_contracts`) + 5 chỉ số Summary
 (hd_het_han, hd_sap_het_30, khach_chua_term, term_doi, khach_chua_han_hd); dashboard đọc sheet Contracts. File Client Master ngoài `sample/`: `caidat.CauHinh.client_master` →
 `ghep.dat_file_master` (runner/kiemtra đặt trước khi chạy); `_cac_bang_term` chỉ đọc file đó khi có.
+
+WR-13 (05/11): luật FIN ở `wr/danhgia.py` (mức theo ngày, nâng mức theo 3 ô Sales, nhóm khách, phương án, điểm A–D);
+`tindung.danh_gia_fin` gắn vào từng `DongRuiRo`; `chitiet.thong_ke_cham_diem` cho điểm; 3 ô Sales lưu trong sổ ghi
+(`HoSoKhach.danh_gia`), tuần mới lấy tuần trước. Ba chỗ cùng một luật: `danhgia.py` · `ghifull.cong_thuc_fin` (Excel) ·
+`dashboard/src/app.js` (`tierOf`) — sửa một chỗ thì sửa cả ba; `tests/test_wr13.py` so Excel (LibreOffice) với Python.
 
 ## Dashboard (WR-05)
 

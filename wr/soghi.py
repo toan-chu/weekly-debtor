@@ -64,6 +64,7 @@ class HoSoKhach:
     lo: List[Lo] = field(default_factory=list)
     nguon: str = ""
     job: str = ""
+    danh_gia: List[str] = field(default_factory=list)   # WR-13: [bất lợi, có phản hồi, thất hứa] — "Có"/"Không"
 
     @classmethod
     def tu_dict(cls, d: dict) -> "HoSoKhach":

@@ -285,9 +285,9 @@ def test_tha_4_file_ra_full_report(ws):
     assert wb.sheetnames == [th.SHEET_SUMMARY, th.SHEET_BANG, th.SHEET_RISK, th.SHEET_CONTRACT, th.SHEET_PAYABLE,
                              th.SHEET_CASH, th.SHEET_INVOICES, th.SHEET_METHOD, th.SHEET_REVIEW]
     rec = wb[th.SHEET_BANG]
-    assert [c.value for c in rec[5]][2] == "Customer's Name" and rec.cell(5, 13).value == "Job Number"
+    assert [c.value for c in rec[5]][2] == "Customer's Name" and rec.cell(5, th.C_JOB).value == "Job Number"
     hang_a = next(r for r in rec.iter_rows(min_row=6, values_only=True) if r[1] == "KA")
-    assert hang_a[12] == "EXSANA26080001", "Job Number không có chữ 'job:'"
+    assert hang_a[th.C_JOB - 1] == "EXSANA26080001", "Job Number không có chữ 'job:'"
     assert all(x.name.startswith("[DONE]") for x in ws.vao.glob("*.xlsx"))
     chu = " ".join(str(c) for r in wb[th.SHEET_REVIEW].iter_rows(values_only=True) for c in r if c)
     assert "KHỚP" in chu and "Chi tiết 131 và Tổng hợp 131 lệch" in chu
@@ -390,12 +390,12 @@ def test_dong_con_theo_job_va_hoa_don_cong_dung_total(ws):
     con = rec.cell(r_a + 1, 3).value
     assert con.strip().startswith("└ EXSANA26080001") and rec.row_dimensions[r_a + 1].outlineLevel == 1
     assert rec.row_dimensions[r_a + 1].hidden, "dòng con mặc định đang gập"
-    assert rec.cell(r_a + 1, 12).value == "Lê Thị Hằng", "tên ngắn trên SMS đổi sang tên đầy đủ"
-    assert rec.cell(r_a + 1, 6).value is None and rec.cell(r_a + 1, 8).value == 100, \
+    assert rec.cell(r_a + 1, th.C_SALES).value == "Lê Thị Hằng", "tên ngắn trên SMS đổi sang tên đầy đủ"
+    assert rec.cell(r_a + 1, th.C_NHOM0).value is None and rec.cell(r_a + 1, th.C_NHOM0 + 2).value == 100, \
         "dòng con nằm đúng cột tuổi của khách (KA: 100 ở 31 - 60)"
-    ct = rec.cell(rec.max_row, 5).value
-    assert rec.cell(rec.max_row, 2).value == "TOTAL" and ct.startswith("=SUMIFS(E6:"), "dòng tổng là công thức"
-    tong = sum(rec.cell(r, 5).value for r in range(6, rec.max_row) if rec.cell(r, 2).value)
+    ct = rec.cell(rec.max_row, th.C_TOTAL).value
+    assert rec.cell(rec.max_row, 2).value == "TOTAL" and ct.startswith("=SUMIFS(F6:"), "dòng tổng là công thức"
+    tong = sum(rec.cell(r, th.C_TOTAL).value for r in range(6, rec.max_row) if rec.cell(r, 2).value)
     assert tong == 370, "chỉ dòng khách (có Code) mới vào tổng"
     inv = wb[th.SHEET_INVOICES]
     tien = [r[9] for r in inv.iter_rows(min_row=6, values_only=True) if isinstance(r[0], int)]

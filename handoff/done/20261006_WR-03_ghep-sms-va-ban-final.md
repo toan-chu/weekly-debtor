@@ -3,7 +3,7 @@ Mạch: WR - báo cáo công nợ phải thu hằng tuần
 Nối tiếp: WR-01
 Người làm: claude
 Người soát: codex
-Trạng thái: chờ-soát
+Trạng thái: đóng-đạt
 Vòng: 0/2
 
 ## ĐỀ BÀI
@@ -65,8 +65,8 @@ Kết luận cũ của người làm (chuẩn v1.1)
 
 Giả định kỹ thuật: (phiếu mở trước v2.0, chưa ghi theo khuôn ba dòng)
 
-Soát: chưa — chờ codex (phiếu chuyển từ chuẩn v1.1 sang v2.0 ở WR-10; các ô ký theo vai cũ không còn hiệu lực).
-Kết quả:
+Soát: user — đóng theo lệnh user 2026-11-05 ("các ticket đang mở cái nào xong thì close & move vào done"). Bằng chứng: Báo cáo W43 (chạy lại 29/10) và W44 (30/10) do Task Scheduler trên máy FIN sinh ra, dùng thật trong tuần (handoff/docs/Cong-No-Workspace (W44): runner.log, 2026_W44_Credit_Report_24.10-30.10.2026.xlsx — 55 khách, phải thu 13.099.776.819; Sales đã ghi lý do tuần này vào file). Không qua codex soát (lệch mục 0/9 của chuẩn, user quyết).
+Kết quả: ĐẠT
 -- claude - 2026-10-27 11:40 UTC+7
 
 ## HISTORY
@@ -125,3 +125,8 @@ Còn treo "Accounts receivable" → user muốn thêm "s". Claude giữ nguyên 
         thuật ngữ chuẩn là "Accounts Receivable" (không s). Sửa 1 dòng TEN_BANG.
 Failure không
 -- claude
+### 2026-11-05
+Failure: không
+Báo lỗi giả: không
+Lessons: đóng phiếu theo lệnh user sau khi tool chạy thật W43–W44 trên máy FIN.
+-- claude - 2026-11-05 10:05 UTC+7

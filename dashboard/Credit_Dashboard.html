@@ -228,6 +228,10 @@ body{background:radial-gradient(1200px 600px at 10% -10%,#efe7fa 0,transparent 6
 }
 [hidden]{display:none!important}
 body{min-height:100vh}
+
+/* WR-13: mức độ FIN — kiểu Excel Good / Neutral / Bad */
+.muc{display:inline-block;padding:1px 8px;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap}
+.muc-1{background:#C6EFCE;color:#006100}.muc-2{background:#FFEB9C;color:#9C5700}.muc-3{background:#FFC7CE;color:#9C0006}
 </style>
 </head>
 <body>
@@ -403,6 +407,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   // Đã chạy bộ kiểm tra màu dataviz: đạt cả mù màu; quá 7 mục gộp "Khác" (xám).
   const CAT = ["#2a78d6", "#1baf7a", "#4a3aa7", "#0e9aa7", "#7a3fc2", "#5b8def", "#008300"];
   const OTHER = "#a39fae";
+  const MUC_FIN = ["Bình thường", "Cảnh báo", "Rủi ro cao"];   // WR-13, cùng wr/thuonghieu.MUC_FIN
   const TIER_COLOR = { N4: "#8e1b2b", N3: "#e34948", N2: "#f08a3c", N1: "#f2c14e", X: "#2a78d6", "0": "#1baf7a" };
   const AUTO = "[TỰ ĐỘNG]";
   const KW_X = ["cấn trừ", "bù trừ", "thanh toán hộ", "supplier của mình"];
@@ -490,6 +495,11 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     // WR-12: từ 29/10 lý do tuần trước ở N, tuần này ở O, Đối chiếu ở P — tìm theo tiêu đề (file cũ: 13 / 14)
     const iLd = H0.indexOf("Reason for late payment") >= 0 ? H0.indexOf("Reason for late payment") : 13;
     const iDc = H0.findIndex((v) => v.startsWith("Đối chiếu")) >= 0 ? H0.findIndex((v) => v.startsWith("Đối chiếu")) : 14;
+    // WR-13: thêm cột "Risk level" + 3 ô Sales → đọc mọi cột theo tiêu đề (file cũ: vị trí cũ)
+    const colR = (name, def) => { const k = H0.indexOf(name); return k >= 0 ? k : def; };
+    const iTerm = colR("Credit Term", 3), iTot = colR("Total", 4), iB0 = colR("Current", 5);
+    const iSal = colR("Salesman", 11), iJob = colR("Job Number", 12);
+    const iDg = ["Adverse info? (Sales)", "Customer responds? (Sales)", "Broken promises / often late? (Sales)"].map((n) => H0.indexOf(n));
     d.cust = [];
     let cur = null;
     for (let i = ri + 1; i < R.length; i++) {
@@ -497,13 +507,14 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       const name = String(r[2] ?? "").trim();
       if (String(r[1] ?? "").trim().toUpperCase() === "TOTAL") break;
       if (name.startsWith("└")) {
-        if (cur) cur.kids.push({ label: name.replace(/^└\s*/, ""), amount: n0(r[4]), sales: r[11] || "", job: r[12] || "",
-                                 b: BUCKETS.map((_, k) => n0(r[5 + k])), status: String(r[iDc] ?? "") });
+        if (cur) cur.kids.push({ label: name.replace(/^└\s*/, ""), amount: n0(r[iTot]), sales: r[iSal] || "", job: r[iJob] || "",
+                                 b: BUCKETS.map((_, k) => n0(r[iB0 + k])), status: String(r[iDc] ?? "") });
         continue;
       }
-      if (!r[1] || typeof r[4] !== "number") continue;
-      cur = { code: String(r[1]).trim(), name, term: r[3] || "", total: r[4], b: BUCKETS.map((_, k) => n0(r[5 + k])),
-              sales: r[11] || "", job: r[12] || "", reason: String(r[iLd] ?? ""), dc: String(r[iDc] ?? ""),
+      if (!r[1] || typeof r[iTot] !== "number") continue;
+      cur = { code: String(r[1]).trim(), name, term: r[iTerm] || "", total: r[iTot], b: BUCKETS.map((_, k) => n0(r[iB0 + k])),
+              sales: r[iSal] || "", job: r[iJob] || "", reason: String(r[iLd] ?? ""), dc: String(r[iDc] ?? ""),
+              dg: iDg.map((k, j) => (k >= 0 && String(r[k] ?? "").trim()) || ["Không", "Có", "Không"][j]),
               reasonLw: iLw >= 0 ? String(r[iLw] ?? "") : "", kids: [], inv: [] };
       cur.overdue = cur.b.slice(1).reduce((a, b) => a + b, 0);
       cur.oldest = cur.b.reduce((m, v, k) => (v > 0.5 ? k : m), 0);
@@ -524,6 +535,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       c.lw61 = n0(r[col("Last week 61+")]); c.bySales = String(r[col("Jobs by Salesman")] ?? "");
       const pd = r[col("Promise date")];
       c.pdFile = typeof pd === "number" ? new Date(Math.round((pd - 25569) * 864e5)) : pd instanceof Date ? pd : null;
+      c.maxQh = col("Max days overdue") >= 0 ? n0(r[col("Max days overdue")]) : null;
       c.opening = n0(r[col("Opening (Misa)")]); c.inc = n0(r[col("Increase")]); c.dec = n0(r[col("Decrease")]);
     }
     d.cust.forEach(tierOf);
@@ -656,6 +668,12 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     c.reasonShown = reason || (c.reasonLw && !c.reasonLw.startsWith(AUTO) ? "Chưa có lý do tuần này · tuần trước: " + c.reasonLw
       : "Chưa có lý do tuần này");
     c.isAuto = !reason;
+    // WR-13: mức rủi ro theo tiêu chí FIN — cùng luật wr/danhgia.py (ô trong file là công thức, có thể chưa có giá trị)
+    const n = c.maxQh != null ? c.maxQh : c.overdue > 0.5 ? [0, 30, 60, 90, 120, 121][c.oldest] : 0;
+    let m = n > 60 ? 3 : n > 30 ? 2 : 1;
+    if (c.dg[0] === "Có" || (n > 0 && c.dg[2] === "Có")) m = 3;
+    if (n > 0 && c.dg[1] === "Không") m = Math.max(m, 2);
+    c.mucFin = m; c.mucTen = MUC_FIN[m - 1];
   }
 
   // ---------------- trang (tab) và địa chỉ ----------------
@@ -933,7 +951,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
   function custPage(c) {
     const pay = D.payers.find((p) => String(p.code).toUpperCase() === c.code.toUpperCase());
     $("#kdHead").innerHTML = `<div><h2>${esc(c.name)}</h2><p class="sub">${esc(c.code)} · ${esc(c.term || "chưa có term")} · ${badge(c)}
-      ${c.ceo ? '<span class="ceo">CEO cần xem</span>' : ""} ${dcBadge(c.dc)}${(c.alerts || []).map((a) => `<span class="hd ${a.muc}" title="${esc(a.note)}">${esc(a.loai)}</span>`).join("")}</p><p class="reason">${reasonCell(c)}</p>
+      ${mucBadge(c)} ${c.ceo ? '<span class="ceo">CEO cần xem</span>' : ""} ${dcBadge(c.dc)}${(c.alerts || []).map((a) => `<span class="hd ${a.muc}" title="${esc(a.note)}">${esc(a.loai)}</span>`).join("")}</p><p class="reason">${reasonCell(c)}</p>
       ${c.action ? `<p class="act">Việc cần làm: ${esc(c.action)}</p>` : ""}
       ${c.bySales ? `<p class="sub">Job theo Sales: ${esc(c.bySales)}</p>` : ""}</div>`;
     const dW = c.lwTotal ? c.total - c.lwTotal : null;
@@ -1071,6 +1089,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         (i) => pickSales(S[i].s)));
   }
 
+  const mucBadge = (c) => `<span class="muc muc-${c.mucFin}">${esc(c.mucTen)}</span>`;
   const badge = (c) => `<span class="badge b-${esc(c.tierKey)}">${esc(c.tier)}</span>`;
   const reasonCell = (c) => c.isAuto ? `<span class="auto">${esc(c.reasonShown)}</span>` : esc(c.reasonShown);
 
@@ -1081,8 +1100,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
         if (!B.length) return (el.innerHTML = `<p class="empty">Không có khách nợ xấu trong bộ lọc này.</p>`);
         if (t === "bar") return hbar(el, B.slice(0, 15).map((c) => ({ k: c.code, label: c.name, value: c.overdue, color: TIER_COLOR[c.tierKey],
           tip: custTip(c) + `<div class="mu">${esc(c.action || "")}</div>`, click: () => pick(c) })));
-        let h = `<div class="table-wrap"><table class="tbl"><tr><th>Khách hàng</th><th>Nhóm</th><th class="n">Quá hạn</th><th class="n">Trên 120 ngày</th><th>Lý do / nhận xét</th><th>Việc cần làm</th><th>Sales</th></tr>`;
-        B.forEach((c) => (h += `<tr class="go" data-c="${esc(c.code)}"><td><b>${esc(c.name)}</b>${c.ceo ? '<br><span class="ceo">CEO cần xem</span>' : ""}</td><td>${badge(c)}</td><td class="n">${money(c.overdue)}</td><td class="n">${money(c.b[5])}</td><td>${reasonCell(c)}</td><td><small>${esc(c.action)}</small></td><td>${esc(salesOf(c).join(", "))}</td></tr>`));
+        let h = `<div class="table-wrap"><table class="tbl"><tr><th>Khách hàng</th><th>Mức độ (FIN)</th><th>Nhóm</th><th class="n">Quá hạn</th><th class="n">Trên 120 ngày</th><th>Lý do / nhận xét</th><th>Việc cần làm</th><th>Sales</th></tr>`;
+        B.forEach((c) => (h += `<tr class="go" data-c="${esc(c.code)}"><td><b>${esc(c.name)}</b>${c.ceo ? '<br><span class="ceo">CEO cần xem</span>' : ""}</td><td>${mucBadge(c)}</td><td>${badge(c)}</td><td class="n">${money(c.overdue)}</td><td class="n">${money(c.b[5])}</td><td>${reasonCell(c)}</td><td><small>${esc(c.action)}</small></td><td>${esc(salesOf(c).join(", "))}</td></tr>`));
         el.innerHTML = h + "</table></div>";
         el.querySelectorAll("tr.go").forEach((tr) => (tr.onclick = () => pick(D.cust.find((c) => c.code === tr.dataset.c))));
       });

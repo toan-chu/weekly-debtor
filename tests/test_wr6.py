@@ -148,7 +148,7 @@ def test_tha_6_file_ra_cot_doi_chieu_va_review(ws, monkeypatch):
     assert o.value.startswith("ĐỎ") and o.fill.fgColor.rgb.endswith("F8CBCB")
     assert rec.cell(hang["KA"] + 1, 3).value.strip().startswith("└ EXSANA26080001 · HĐ 00000001")
     assert rec.cell(hang["KA"] + 1, DC).value == "Chưa thanh toán"
-    assert rec.cell(hang["KA"] + 1, 12).value == "Lê Thị Hằng", "sales của job lấy từ SMS"
+    assert rec.cell(hang["KA"] + 1, th.C_SALES).value == "Lê Thị Hằng", "sales của job lấy từ SMS"
     chu = " ".join(str(c) for r in wb[th.SHEET_REVIEW].iter_rows(values_only=True) for c in r if c)
     assert "ĐỎ — tổng job" in chu and "CÔNG TY D" in chu and "TÍM" in chu and "CÔNG TY LẠ" in chu
     inv = wb[th.SHEET_INVOICES]
@@ -200,4 +200,4 @@ def test_chi_tiet_xuat_toi_cuoi_thang_van_chay(ws):
     assert all(x.name.startswith("[DONE]") for x in ws.vao.glob("*.xlsx"))
     rec = openpyxl.load_workbook(next(ws.ra.glob("2026_W40_*.xlsx")))[th.SHEET_BANG]
     a = next(r for r in rec.iter_rows(min_row=6, values_only=True) if r[1] == "KA")
-    assert a[4] == 100 and a[7] == 100, "phiếu thu 05/10 nằm sau kỳ: HĐ 00000001 vẫn còn nợ ở 31 - 60"
+    assert a[th.C_TOTAL - 1] == 100 and a[th.C_NHOM0 + 1] == 100, "phiếu thu 05/10 nằm sau kỳ: HĐ 00000001 vẫn còn nợ ở 31 - 60"

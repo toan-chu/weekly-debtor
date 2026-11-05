@@ -159,34 +159,31 @@ class KhachChiTiet:
         ra = [(k[0], k[1], con[k]) for k in sorted(con) if con[k] > 0.5]
         return ra, du
 
-    def hoa_don_tra_tre(self, den: dt.date, han_cua, da_tt=None, so_ngay: int = 15,
-                        so_thang: int = 6) -> List[Tuple[str, dt.date, dt.date, int]]:
-        """WR-11 (CEO): hoá đơn đã TẤT TOÁN trong `so_thang` tháng tới `den` mà ngày tất toán trễ hơn hạn
-        quá `so_ngay` ngày. han_cua(ngày HĐ) → ngày đến hạn. Ngày tất toán = ngày có phiếu thu đầu tiên mà
-        sau đó hoá đơn hết nợ, theo đúng cách tool phân bổ tiền thu (hoa_don_con_no). Hoá đơn còn nợ không
-        tính ở đây (đã nằm trong tuổi nợ). Trả [(số HĐ, ngày HĐ, ngày tất toán, số ngày trễ)]."""
-        tu = den - dt.timedelta(days=round(so_thang * 30.5))
+    def ngay_hd_dau(self) -> Optional[dt.date]:
+        """WR-13: ngày hoá đơn đầu tiên của khách trong file (Chi tiết 131 xuất từ 2022) — để xếp nhóm Mới / Thường xuyên /
+        Lâu năm. Khách chưa có hoá đơn nào → None."""
+        ngay = [(b.ngay_hd or b.ngay_ht) for b in self.but_toan if b.no > 0 and _so_hd(b.so_hd) is not None]
+        return min(ngay) if ngay else None
 
-        def mo(ngay):          # khoá hoá đơn (số HĐ thật) còn nợ tại `ngay`
-            con, _ = self.hoa_don_con_no(ngay, da_tt)
-            return {(n, s) for n, s, _t in con if _so_hd(s) is not None}
-
-        def co(ngay):          # khoá hoá đơn đã phát sinh tới `ngay`
-            return {((b.ngay_hd or b.ngay_ht), b.so_hd) for b in self.but_toan
-                    if b.ngay_ht <= ngay and b.no > 0 and _so_hd(b.so_hd) is not None}
-
-        ngay_thu = sorted({b.ngay_ht for b in self.but_toan
-                           if tu < b.ngay_ht <= den and (b.co > 0 or b.no < 0)})
-        ra: List[Tuple[str, dt.date, dt.date, int]] = []
-        truoc_mo, truoc_co = mo(tu), co(tu)
-        for d in ngay_thu:
-            nay_mo, nay_co = mo(d), co(d)
-            for k in sorted((truoc_mo | (nay_co - truoc_co)) - nay_mo):
-                tre = (d - han_cua(k[0])).days
-                if tre > so_ngay:
-                    ra.append((k[1], k[0], d, tre))
-            truoc_mo, truoc_co = nay_mo, nay_co
-        return ra
+    def thong_ke_cham_diem(self, den: dt.date, da_tt=None) -> Dict[str, float]:
+        """WR-13 (điểm A–D của FIN, tham khảo): xét các hoá đơn phát sinh từ đầu năm + hoá đơn năm trước còn nợ ở đầu năm
+        (FIN chốt 05/11, cùng phạm vi file 'theo hoá đơn' FIN dùng). Trả: so_hd (số hoá đơn xét), so_tra_du (đã thu đủ),
+        gia_tri (giá trị hoá đơn trong năm + phần năm trước còn nợ ở đầu năm), da_thu (đã thu trong năm, gồm cả giảm trừ — sổ Chi tiết không tách được)."""
+        dau = dt.date(den.year, 1, 1)
+        so = lambda k: _so_hd(k[1]) is not None
+        con_dau = {(n, s_): t for n, s_, t in self.hoa_don_con_no(dau - dt.timedelta(days=1), da_tt)[0] if so((n, s_))}
+        con_nay = {(n, s_): t for n, s_, t in self.hoa_don_con_no(den, da_tt)[0] if so((n, s_))}
+        gia_tri: Dict[Tuple[dt.date, str], float] = {}
+        for b in self.but_toan:
+            k = ((b.ngay_hd or b.ngay_ht), b.so_hd)
+            if b.no > 0 and so(k) and dau <= b.ngay_ht <= den:
+                gia_tri[k] = gia_tri.get(k, 0.0) + b.no
+        xet = set(gia_tri) | set(con_dau)
+        D = sum(gia_tri.values())
+        da_thu = D + sum(con_dau.values()) - sum(con_nay.get(k, 0.0) for k in xet)
+        # mẫu số = giá trị phải thu trong phạm vi xét (hoá đơn trong năm + phần năm trước còn nợ ở đầu năm), để tỷ lệ ≤ 100%
+        return {"so_hd": len(xet), "so_tra_du": sum(1 for k in xet if con_nay.get(k, 0.0) <= 0.5),
+                "gia_tri": round(D + sum(con_dau.values()), 2), "da_thu": round(da_thu, 2)}
 
 
 @dataclass

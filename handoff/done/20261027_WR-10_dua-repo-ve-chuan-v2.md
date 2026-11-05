@@ -3,7 +3,7 @@ Mạch: WR - báo cáo công nợ phải thu hằng tuần
 Nối tiếp:
 Người làm: claude
 Người soát: codex
-Trạng thái: chờ-soát
+Trạng thái: đóng-đạt
 Vòng: 1/2
 
 ## ĐỀ BÀI
@@ -95,8 +95,8 @@ Sai thì làm lại: đổi `FIX` trong `tests/test_wr.py`, dòng `.gitignore`, 
 Vì sao chọn: không viết hộ điều người làm khi đó chưa ghi, không sửa mục đã ký.
 Sai thì làm lại: bổ sung tay từng phiếu.
 
-Soát:
-Kết quả:
+Soát: user — đóng theo lệnh user 2026-11-05 ("các ticket đang mở cái nào xong thì close & move vào done"). Bằng chứng: Báo cáo W43 (chạy lại 29/10) và W44 (30/10) do Task Scheduler trên máy FIN sinh ra, dùng thật trong tuần (handoff/docs/Cong-No-Workspace (W44): runner.log, 2026_W44_Credit_Report_24.10-30.10.2026.xlsx — 55 khách, phải thu 13.099.776.819; Sales đã ghi lý do tuần này vào file). Không qua codex soát (lệch mục 0/9 của chuẩn, user quyết).
+Kết quả: ĐẠT
 -- claude - 2026-10-27 11:52 UTC+7
 
 ## HISTORY
@@ -105,3 +105,8 @@ Failure: script chuyển phiếu lần đầu dùng `\s*` trong regex nên nuố
 Báo lỗi giả: không
 Lessons: chuyển hàng loạt file bằng script thì đọc lại ít nhất một file có cấu trúc khác nhau trước khi coi là xong.
 -- claude - 2026-10-27 11:52 UTC+7
+### 2026-11-05
+Failure: không
+Báo lỗi giả: không
+Lessons: đóng phiếu theo lệnh user sau khi tool chạy thật W43–W44 trên máy FIN.
+-- claude - 2026-11-05 10:05 UTC+7

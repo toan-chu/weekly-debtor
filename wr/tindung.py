@@ -31,19 +31,6 @@ NGUONG_DU_LE = 1_000              # VND: dư nợ nhỏ hơn thế là số lẻ
 TU_KHOA_LOAI_TRU = ("cấn trừ", "bù trừ", "thanh toán hộ", "supplier của mình")
 TU_KHOA_PHAP_LY = ("đang kiện", "mất liên lạc", "khó đòi", "công nợ xấu", "phá sản")
 
-# --- WR-11 (CEO 27/10): màu theo tuổi nợ + nâng hạng -------------------------
-# X, Y là GIẢ ĐỊNH tạm (bản Head FIN làm thử W43): chờ Head FIN chốt rồi sửa ở đây.
-NGUONG_X = 100_000_000            # T1: quá hạn từ X trở lên → nâng 1 mức
-NGUONG_Y = 50_000_000             # T4: khách mới (tuần trước chưa có dư nợ) nợ từ Y trở lên → nâng 1 mức
-SO_HD_TRE_NANG = 2                # T3: từ N hoá đơn trả trễ trở lên → nâng 1 mức
-NGAY_TRE = 15                     # trả trễ hơn hạn quá 15 ngày
-THANG_TRE = 6                     # trong 6 tháng gần nhất
-# Nâng thẳng lên Đỏ: hứa không trả / mất liên lạc. Không dùng "không trả" trơn — bắt nhầm câu như
-# "khách không trả kịp vì bank" (bản thử W43).
-TU_KHOA_NANG_THANG = ("mất liên lạc", "không liên lạc được", "hứa không trả", "từ chối thanh toán",
-                      "từ chối trả", "không chịu thanh toán", "không chịu trả", "bỏ trốn")
-TEN_MAU = ("Xanh", "Vàng", "Cam", "Đỏ", "Đỏ đậm")
-
 N0, NX, N4, N3, N2, N1 = ("0·Chưa đến hạn", "X·Không phải rủi ro tín dụng",
                           "N4·Nợ xấu–sự kiện pháp lý", "N3·Nợ xấu", "N2·Cần theo dõi",
                           "N1·Quá hạn bình thường")
@@ -77,18 +64,24 @@ class DongRuiRo:
     chia_sales: str = ""   # WR-08 (CX): khách nhiều Sales — job nào của Sales nào
     ngay_hen: Optional[dt.date] = None   # ngày Sales hẹn khách trả, đọc từ lý do
     s7: int = 0                          # S7 lỡ hẹn: đã qua ngày hẹn mà quá hạn không giảm
-    # WR-11: lý do tuần trước (PA1) + dữ liệu nâng hạng màu
+    # WR-11: lý do tuần trước (PA1) · file credit term
     ly_do_truoc: str = ""
-    so_hd_tre: int = 0                   # hoá đơn trả trễ > NGAY_TRE ngày trong THANG_TRE tháng (tool đếm)
-    han_muc: Optional[float] = None      # Client Master: Hạn mức nợ (VND)
-    khong_nang: bool = False             # Client Master: Không nâng hạng màu
-    co_hd: Optional[bool] = None         # Client Master: Đã có hợp đồng (None = file chưa có cột này)
+    han_muc: Optional[float] = None      # file credit term: Hạn mức nợ (VND) — TC2 của FIN chờ WR-14
+    co_hd: Optional[bool] = None         # file credit term: Đã có hợp đồng (None = file chưa có cột này)
     link_hd: str = ""                    # WR-12: link file hợp đồng (PDF) — ô "Mở hợp đồng" ở AR Risk
-    muc_goc: int = 0
-    tieu_chi: List[int] = field(default_factory=lambda: [0] * 4)   # T1..T4
-    nang_thang: int = 0
-    nang: int = 0
-    muc: int = 0
+    # WR-13: đánh giá theo tiêu chí FIN (wr/danhgia.py)
+    danh_gia: List[str] = field(default_factory=lambda: list(th_.DANH_GIA_MAC_DINH))  # bất lợi, phản hồi, thất hứa
+    ngay_qh: int = 0                     # số ngày quá hạn lớn nhất
+    ngay_hd_dau: Optional[dt.date] = None
+    nhom_kh: str = ""                    # Mới / Thường xuyên / Lâu năm
+    muc_ngay: int = 1                    # mức theo ngày quá hạn (1–3)
+    muc_fin: int = 1                     # mức cuối sau nâng (1–3)
+    can_cu: str = ""
+    hinh_thuc: str = ""
+    phuong_an: str = ""
+    cham: Dict[str, float] = field(default_factory=dict)   # so_hd, ty_le_thu_hoi, ty_le_qua_han, ty_le_tra_du
+    diem: int = 0
+    hang: str = ""
 
     @property
     def ly_do_hieu_luc(self) -> str:
@@ -96,8 +89,8 @@ class DongRuiRo:
         return self.ly_do if self.ly_do.strip() else self.ly_do_truoc
 
     @property
-    def mau(self) -> str:
-        return TEN_MAU[self.muc]
+    def ten_muc(self) -> str:
+        return th_.MUC_FIN[self.muc_fin - 1]
 
     @property
     def qua_han(self) -> float:
@@ -340,7 +333,8 @@ def _dong_con_theo_so(d: DongBaoCao, job_misa, ma: str, khai_no_cu: list, sales_
         i = sg.nhom_tu_so_ngay((tai_ngay - han).days)
         n = ctm._so_hd(str(so_hd)) if ngay else None
         h = theo_hd.get((n, ngay.year)) if n is not None else None
-        g0 = {"ngay": ngay, "nguon_ngay": "HĐ", "so_hd": so_hd if ngay else "", "misa": True}
+        g0 = {"ngay": ngay, "nguon_ngay": "HĐ", "so_hd": so_hd if ngay else "", "misa": True,
+              "han": han}                       # WR-13 (FIN 05/11): hạn của job = hạn hoá đơn (ngày HĐ + credit term)
         if ngay is None:
             nhom[i] = tien
             d.dong_con.append({**g0, "job": "Chưa rõ hoá đơn (Tổng hợp 131 cao hơn Chi tiết)", "sales": "",
@@ -467,35 +461,31 @@ def danh_gia_rui_ro(r: DongRuiRo, ngay_chot: Optional[dt.date] = None) -> DongRu
                           "Dừng cấp dịch vụ mới. Yêu cầu cam kết NGÀY cụ thể bằng văn bản trong 7 ngày.")
     r.ceo = Q >= NGUONG_CEO and not r.ly_do.strip()
     r.xu_huong = _xu_huong(r)
-    return danh_gia_mau(r)
+    return r
 
 
-def muc_goc(nhom: List[float]) -> int:
-    """Màu gốc theo nhóm tuổi CŨ NHẤT còn tiền (bỏ số lẻ dưới 1.000đ): 0 chưa quá hạn · 1 (1–30) ·
-    2 (31–60) · 3 (61–90) · 4 (91–120 và trên 120)."""
-    if nhom[4] + nhom[5] >= NGUONG_DU_LE:
-        return 4
-    for i in (3, 2, 1):
-        if nhom[i] >= NGUONG_DU_LE:
-            return i
-    return 0
-
-
-def danh_gia_mau(r: DongRuiRo) -> DongRuiRo:
-    """WR-11 (CEO): mức màu cuối = màu gốc, +1 nếu có ít nhất một tiêu chí T1–T4 (trừ khách được đánh dấu
-    'Không nâng hạng màu'), hoặc thẳng lên Đỏ khi hứa không trả / mất liên lạc. Cùng luật với công thức ở
-    sheet AR Risk (ghifull.cong_thuc_mau) — sửa một chỗ thì sửa cả hai."""
-    J, Q = r.cuoi_ky, r.qua_han
-    r.muc_goc = muc_goc(r.nhom)
-    r.tieu_chi = [
-        int(Q >= NGUONG_X),                                                    # T1
-        int(bool(r.han_muc) and J > (r.han_muc or 0)),                         # T2
-        int(r.so_hd_tre >= SO_HD_TRE_NANG),                                    # T3
-        int(J > 0.5 and (r.co_hd is False or (r.tt_total < 0.5 and J >= NGUONG_Y))),   # T4
-    ]
-    r.nang_thang = int(_co(r.ly_do_hieu_luc, TU_KHOA_NANG_THANG))
-    r.nang = int(not r.khong_nang and any(r.tieu_chi))
-    r.muc = min(4, max(r.muc_goc, 3) if r.nang_thang else r.muc_goc + r.nang)
+def danh_gia_fin(r: DongRuiRo, d: DongBaoCao, kct, tai_ngay: dt.date, da_tt=None) -> DongRuiRo:
+    """WR-13: mức rủi ro theo tiêu chí FIN, nhóm khách, phương án xử lý, điểm A–D (wr/danhgia.py)."""
+    from . import danhgia as dg
+    han = [(tai_ngay - h).days for _n, _s, h, t in (d.hoa_don or []) if t > 0.5 and h]
+    if han:
+        r.ngay_qh = max(0, max(han))
+    else:                                   # khó đòi / ngoại lệ không có hoá đơn theo sổ: lấy cận trên của nhóm tuổi
+        r.ngay_qh = (0, 30, 60, 90, 120, 121)[d.nhom_gia_nhat]
+    r.ngay_hd_dau = kct.ngay_hd_dau() if kct is not None else None
+    r.nhom_kh = dg.nhom_khach(r.ngay_hd_dau, tai_ngay)
+    r.muc_ngay = dg.muc_theo_ngay(r.ngay_qh)
+    r.muc_fin = dg.muc_cuoi(r.ngay_qh, r.danh_gia)
+    r.can_cu = dg.can_cu(r.ngay_qh, r.danh_gia)
+    r.hinh_thuc = dg.hinh_thuc(r.muc_fin, r.nhom_kh)
+    r.phuong_an = dg.phuong_an(r.muc_fin, r.nhom_kh, r.ngay_qh, r.danh_gia)
+    tk = kct.thong_ke_cham_diem(tai_ngay, da_tt) if kct is not None else {"so_hd": 0, "so_tra_du": 0,
+                                                                           "gia_tri": 0.0, "da_thu": 0.0}
+    r.cham = {"so_hd": tk["so_hd"],
+              "ty_le_thu_hoi": 1.0 if tk["gia_tri"] <= 0 else round(tk["da_thu"] / tk["gia_tri"], 4),
+              "ty_le_qua_han": 0.0 if r.cuoi_ky <= 0 else round(r.qua_han / r.cuoi_ky, 4),
+              "ty_le_tra_du": 0.0 if not tk["so_hd"] else round(tk["so_tra_du"] / tk["so_hd"], 4)}
+    r.diem, r.hang = dg.cham_diem(r.ngay_qh, r.cham["ty_le_thu_hoi"], r.cham["ty_le_qua_han"], r.cham["ty_le_tra_du"])
     return r
 
 
@@ -555,6 +545,9 @@ def tinh_full(th: TongHop, ct: ctm.ChiTiet, so: sg.SoGhi, dong_sms=None, bang=No
                        nhom=[0.0] * 6, salesman=tr.salesman if tr else "",
                        ghi_chu=tr.ghi_chu if tr else "", ly_do=hn.ly_do if hn else "",
                        ly_do_truoc=tr.ly_do if tr else "")
+        # WR-13 (FIN 05/11): 3 ô Sales đánh giá — chạy lại cùng tuần giữ ô tuần này; tuần mới mang giá trị tuần trước
+        d.danh_gia = list((hn.danh_gia if hn and hn.danh_gia else None)
+                          or (tr.danh_gia if tr and tr.danh_gia else None) or th_.DANH_GIA_MAC_DINH)
         ngoai = so.ngoai_le.get(k.ten_chuan)
         kct = ct.khach.get(k.ten_chuan)
         if ngoai and "nhom" in ngoai:
@@ -715,18 +708,15 @@ def tinh_full(th: TongHop, ct: ctm.ChiTiet, so: sg.SoGhi, dong_sms=None, bang=No
             tt_61=round(sum(tr.nhom[3:]), 2) if tr else 0.0, co_tuan_truoc=tr is not None,
             nhap_bo_sung=round(k.dau_ky - tr.tong, 2) if tr else None, ly_do_truoc=d.ly_do_truoc,
         )
-        if kct is not None and d.nguon != "kho-doi":
-            r.so_hd_tre = len(kct.hoa_don_tra_tre(tai_ngay, lambda n, t=term: sg.han_tu_term(n, t), da_tt,
-                                                  NGAY_TRE, THANG_TRE))
         if master:
             m = master.get(k.ma.upper())
             r.han_muc = (m or {}).get("han_muc")
-            r.khong_nang = bool((m or {}).get("khong_nang"))
             r.link_hd = (m or {}).get("link_hd") or ""
             co_cot = any(v.get("co_hd") is not None for v in master.values())
             r.co_hd = bool((m or {}).get("co_hd")) if co_cot else None
         r.chia_sales = chia_theo_sales(d.dong_con)
-        kq.rui_ro.append(danh_gia_rui_ro(r, ngay_chot))
+        r.danh_gia = list(d.danh_gia)
+        kq.rui_ro.append(danh_gia_fin(danh_gia_rui_ro(r, ngay_chot), d, kct, tai_ngay, da_tt))
 
     if job_misa is not None:
         # khách có trên Tổng hợp nhưng không còn dư nợ, mà hoá đơn vẫn ghi chưa thanh toán

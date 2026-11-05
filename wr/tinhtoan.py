@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from . import soghi as sg
+from . import thuonghieu as th
 from .misa import DongTuoiNo, TongHop, TuoiNo
 
 LECH_CHO_PHEP = 2.0  # đồng
@@ -31,6 +32,7 @@ class DongBaoCao:
     ghi_chu: str = ""
     ly_do: str = ""
     ly_do_truoc: str = ""           # WR-11 PA1: lý do Sales ghi ở báo cáo tuần trước (chỉ để đọc)
+    danh_gia: List[str] = field(default_factory=lambda: list(th.DANH_GIA_MAC_DINH))  # WR-13: 3 ô Sales đánh giá
     nguon: str = ""                 # misa | so-ghi | khoi-dong-lanh | ngoai-le
     cho_xem_lai: List[str] = field(default_factory=list)      # vấn đề về SỐ
     thieu_thong_tin: List[str] = field(default_factory=list)  # thiếu cột người điền
@@ -163,7 +165,7 @@ def thanh_ho_so(d: DongBaoCao) -> sg.HoSoKhach:
     return sg.HoSoKhach(
         ma=d.ma, ten=d.ten, credit_term=d.credit_term, salesman=d.salesman,
         ghi_chu=d.ghi_chu, ly_do=d.ly_do, tong=d.total, nhom=d.nhom, lo=d.lo, nguon=d.nguon,
-        job=d.job,
+        job=d.job, danh_gia=list(d.danh_gia),
     )
 
 

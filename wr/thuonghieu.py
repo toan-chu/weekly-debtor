@@ -34,6 +34,7 @@ COT = [
     ("No.", "ten", 6),
     ("Code", "ten", 16),
     ("Customer's Name", "ten", 46),
+    ("Risk level", "ten", 13),                     # WR-13 (FIN 05/11): ô Mức độ cạnh tên khách — công thức từ AR Risk
     ("Credit Term", "ten", 14),
     ("Total", "tien", 16),
     ("Current", "tien", 15),
@@ -46,9 +47,29 @@ COT = [
     ("Job Number", "ten", 30),
     ("Reason last week (read only)", "ten", 40),   # WR-12 (user 29/10): tuần trước bên TRÁI, tuần này bên phải
     ("Reason for late payment", "ten", 60),
+    # WR-13 (FIN 05/11): Sales đánh giá mỗi tuần, tuần mới giữ giá trị tuần trước
+    ("Adverse info? (Sales)", "ten", 11),
+    ("Customer responds? (Sales)", "ten", 11),
+    ("Broken promises / often late? (Sales)", "ten", 13),
 ]
-COT_LY_DO_TRUOC_SO = 14   # cột N: lý do tuần trước (chỉ đọc)
-COT_LY_DO_NAY = 15        # cột O: lý do tuần này (Sales ghi)
+
+
+def c(ten: str) -> int:
+    """Số thứ tự cột (bắt đầu 1) của cột tên `ten` ở sheet Receivables — đừng viết số cột cứng."""
+    return [t for t, _, _ in COT].index(ten) + 1
+
+
+C_TEN, C_MUC, C_TERM, C_TOTAL = c("Customer's Name"), c("Risk level"), c("Credit Term"), c("Total")
+C_NHOM0, C_NHOM5 = c("Current"), c("120+")
+C_SALES, C_JOB = c("Salesman"), c("Job Number")
+COT_LY_DO_TRUOC_SO = c("Reason last week (read only)")
+COT_LY_DO_NAY = c("Reason for late payment")
+COT_DANH_GIA = [c("Adverse info? (Sales)"), c("Customer responds? (Sales)"), c("Broken promises / often late? (Sales)")]
+# giá trị mặc định khi chưa ai chọn (như file FIN): không có thông tin bất lợi · khách có phản hồi · không thất hứa
+DANH_GIA_MAC_DINH = ("Không", "Có", "Không")
+# WR-13: 3 mức rủi ro theo tiêu chí FIN — màu kiểu Excel Good / Neutral / Bad (nền nhạt, chữ đậm), chỉ tô ô
+MUC_FIN = ("Bình thường", "Cảnh báo", "Rủi ro cao")
+MAU_MUC_FIN = {"Bình thường": ("C6EFCE", "006100"), "Cảnh báo": ("FFEB9C", "9C5700"), "Rủi ro cao": ("FFC7CE", "9C0006")}
 
 # v0.5 (WR-06): cột thêm khi có file Bán hàng — dư nợ Misa so với tổng job chưa thanh toán
 COT_DOI_CHIEU = ("Đối chiếu job (FIN)", 46)

@@ -49,7 +49,6 @@ COT = [
     ("loai_hd",  "Loại hợp đồng",         "Hợp đồng", 18, "ten"),
     ("term",     "Thời hạn",              "Hợp đồng", 30, "ten"),
     ("han_muc",  "Hạn mức nợ (VND)",      "Hợp đồng", 16, "so"),     # WR-11: credit term = số ngày + hạn mức
-    ("khong_nang","Không nâng hạng màu",  "Hợp đồng", 11, "tick"),   # WR-11 (CEO): giữ hàng, đi hàng đều, hồ sơ tốt
     ("hieu_luc", "Ngày hiệu lực",         "Hợp đồng", 13, "ngay"),
     ("het_han",  "Ngày hết hạn",          "Hợp đồng", 13, "ngay"),
     ("gia_han",  "Ngày gia hạn",          "Gia hạn", 13, "ngay"),
@@ -131,8 +130,7 @@ def _tieu_de(ws) -> None:
            "term": "Tool đọc cột này mỗi tuần. Viết: 'thanh toán ngay', '30 days', "
                    "'14 ngày của tháng tiếp theo'… — xem sheet Hướng dẫn.",
            "sales": "Tên đầy đủ như trên SMS. Khách nhiều Sales: ghi cách nhau dấu phẩy.",
-           "han_muc": "Hạn mức nợ (VND) theo hợp đồng. Báo cáo tuần: dư nợ vượt hạn mức → nâng màu 1 mức.",
-           "khong_nang": "✓ = khách tốt (giữ được hàng, đi hàng đều, hồ sơ tốt): báo cáo không nâng màu.",
+           "han_muc": "Hạn mức nợ (VND) theo hợp đồng. Chưa dùng để xếp mức rủi ro (chờ Client Master, WR-14).",
            "link_hd": "Dán link file hợp đồng (SharePoint / OneDrive).",
            "het_moi": "Tự tính: ngày gia hạn + 12 tháng.",
            "trang_thai": "Tự tính từ Hạn đang áp dụng (≤30 / ≤60 / ≤90 ngày)."}
@@ -210,12 +208,6 @@ def ghi_master(dich: Path, dong: Sequence[Dict], sales: Sequence[str], ghi_chu: 
                         showInputMessage=True)
     dv.add(f"{c['co_hd']}{DONG_DAU}:{c['co_hd']}{cuoi}")
     ws.add_data_validation(dv)
-    dv = DataValidation(type="list", formula1=f'"{DAU_TICH}"', allow_blank=True, showErrorMessage=False,
-                        promptTitle="Không nâng hạng màu", showInputMessage=True,
-                        prompt="Chọn ✓ nếu khách giữ được hàng, đi hàng đều, hồ sơ tốt: báo cáo không nâng màu "
-                               "theo các tiêu chí T1–T4 (vẫn lên Đỏ nếu hứa không trả / mất liên lạc)")
-    dv.add(f"{c['khong_nang']}{DONG_DAU}:{c['khong_nang']}{cuoi}")
-    ws.add_data_validation(dv)
     dv = DataValidation(type="decimal", operator="greaterThanOrEqual", formula1="0", allow_blank=True,
                         errorTitle="Hạn mức nợ", error="Nhập số tiền VND, VD 500000000")
     dv.add(f"{c['han_muc']}{DONG_DAU}:{c['han_muc']}{cuoi}")
@@ -288,7 +280,7 @@ def _huong_dan(ws, sales: Sequence[str]) -> None:
                                  "FIN điền); không sửa ô đã có. Trước khi thêm luôn sao lưu file vào _tool/luu-tru.")
     dong(8, "Cột nền xám", "Tự tính (STT, hết hạn sau gia hạn, còn lại, trạng thái) — đừng gõ đè.")
     dong(9, "Tiêu đề dòng 6", "Giữ nguyên chữ. Chèn cột thêm được; đổi tên cột tiêu đề thì tool không đọc được.")
-    dong(10, "Đã có hợp đồng · Không nâng hạng màu",
+    dong(10, "Đã có hợp đồng",
          "Chọn ✓ trong ô (bấm mũi tên). Hạn mức nợ: số tiền VND. Link hợp đồng: dán link file.")
 
     muc(11, "2. Màu trong bảng")
@@ -410,7 +402,6 @@ def doc_master(thu_muc, ngay=None) -> Dict[str, Dict]:
         i_sales = cot("sales phụ trách", "salesman")
         i_co_hd = cot("đã có hợp đồng")
         i_han_muc = cot("hạn mức nợ (vnd)", "hạn mức nợ", "credit limit", "credit limit (vnd)")
-        i_khong_nang = cot("không nâng hạng màu", "không nâng hạng")
         i_link = cot("link hợp đồng", "contract link")
         g = lambda r, i: r[i] if i is not None and i < len(r) else None
         for r in hang[1:]:
@@ -422,7 +413,7 @@ def doc_master(thu_muc, ngay=None) -> Dict[str, Dict]:
                           het_han=het, gia_han=gh, han_dung=han_ap_dung(het, gh, ngay or _hom_nay()),
                           sales=ghep._o(g(r, i_sales)),
                           co_hd=la_tich(g(r, i_co_hd)) if i_co_hd is not None else None,
-                          han_muc=so_tien(g(r, i_han_muc)), khong_nang=la_tich(g(r, i_khong_nang)),
+                          han_muc=so_tien(g(r, i_han_muc)), 
                           link_hd=ghep._o(g(r, i_link)))
     return ra
 

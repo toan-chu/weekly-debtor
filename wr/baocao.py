@@ -67,15 +67,15 @@ def ghi_bao_cao(
     ws.title = th.SHEET_BANG
     # chữ tiêu đề lấy từ thuonghieu.py mỗi lần chạy, sửa ở đó là đủ
     ws["A1"], ws["A2"], ws["A4"] = th.CONG_TY, th.TEN_BAO_CAO, th.TEN_BANG
-    # mẫu chuẩn có 14 cột (cột cuối là lý do); từ WR-12 thêm cột lý do tuần trước ở N → mượn kiểu tiêu đề cột cuối mẫu
-    kieu_ly_do = copy(ws.cell(row=th.DONG_TIEU_DE, column=14)._style)
-    for i, (ten_cot, _, rong) in enumerate(th.COT, start=1):
-        o = ws.cell(row=th.DONG_TIEU_DE, column=i)
-        if i >= th.COT_LY_DO_TRUOC_SO:
-            o._style = copy(kieu_ly_do)
-        o.value = ten_cot
+    # WR-13: tiêu đề tự tô theo loại cột (định danh cam, tiền tím) — không dựa vào vị trí cột của file mẫu nữa
+    for i, (ten_cot, loai, rong) in enumerate(th.COT, start=1):
+        o = ws.cell(row=th.DONG_TIEU_DE, column=i, value=ten_cot)
+        o.fill = PatternFill("solid", fgColor=th.TIM if loai == "tien" else th.CAM)
+        o.font = Font(name=th.PHONG_TIEU_DE, size=10, bold=True, color=th.TRANG)
+        o.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center" if loai == "tien" else "left")
         ws.column_dimensions[get_column_letter(i)].width = rong
     ws["A3"] = _ngay_en(ngay_chot)
+    co_ar_risk = them_sheet is not None          # ô Mức độ là công thức lấy từ sheet AR Risk (chỉ có ở full report)
 
     vien = Side(style="thin", color="D9D9D9")
     kieu_vien = Border(left=vien, right=vien, top=vien, bottom=vien)
@@ -84,43 +84,49 @@ def ghi_bao_cao(
     n_cot = len(th.COT) + (1 if co_doi_chieu else 0)
     if co_doi_chieu:
         _cot_doi_chieu(ws)
-    # WR-11 PA1 / WR-12: cột lý do tuần trước (N, chỉ để đọc, tiêu đề xám) nằm ngay bên trái lý do tuần này (O)
+    # WR-11 PA1 / WR-12: cột lý do tuần trước (chỉ để đọc, tiêu đề xám) nằm ngay bên trái lý do tuần này
     c_lw = th.COT_LY_DO_TRUOC_SO
     ws.cell(row=th.DONG_TIEU_DE, column=c_lw).fill = PatternFill("solid", fgColor="7F7F7F")
+    tien = range(th.C_TOTAL, th.C_NHOM5 + 1)
     hang = th.DONG_DAU_DU_LIEU
     for stt, d in enumerate(dong, start=1):
-        gia_tri = [stt, d.ma, d.ten, d.credit_term, d.total] + \
-                  [v if abs(v) > 0.4 else None for v in d.nhom] + \
-                  [d.salesman, d.job, d.ly_do_truoc or None, d.ly_do]
-        for cot, v in enumerate(gia_tri, start=1):
-            o = ws.cell(row=hang, column=cot, value=v)
+        gia_tri = {1: stt, 2: d.ma, th.C_TEN: d.ten, th.C_TERM: d.credit_term, th.C_TOTAL: d.total,
+                   th.C_SALES: d.salesman, th.C_JOB: d.job, c_lw: d.ly_do_truoc or None, th.COT_LY_DO_NAY: d.ly_do}
+        for k, v in enumerate(d.nhom):
+            gia_tri[th.C_NHOM0 + k] = v if abs(v) > 0.4 else None
+        for k, v in zip(th.COT_DANH_GIA, d.danh_gia):
+            gia_tri[k] = v
+        if co_ar_risk:
+            gia_tri[th.C_MUC] = (f"=IFERROR(INDEX('{th.SHEET_RISK}'!${_cot_muc_risk()}:${_cot_muc_risk()},"
+                                 f"MATCH($B{hang},'{th.SHEET_RISK}'!$B:$B,0)),\"\")")
+        for cot in range(1, len(th.COT) + 1):
+            o = ws.cell(row=hang, column=cot, value=gia_tri.get(cot))
             o.font = Font(name=th.PHONG_NOI_DUNG, size=10)
             o.border = kieu_vien
-            if 5 <= cot <= 11:
+            if cot in tien:
                 o.number_format = DINH_DANG_TIEN
                 o.alignment = Alignment(horizontal="right")
-            elif cot == 1:
-                o.alignment = Alignment(horizontal="center")
+            elif cot == 1 or cot in th.COT_DANH_GIA or cot == th.C_MUC:
+                o.alignment = Alignment(horizontal="center", vertical="top")
             else:
                 # Job Number không xuống dòng (danh sách job đầy đủ nằm ở các dòng con)
                 o.alignment = Alignment(vertical="top", wrap_text=cot in (th.COT_LY_DO_TRUOC_SO, th.COT_LY_DO_NAY))
-        o = ws.cell(row=hang, column=c_lw, value=d.ly_do_truoc or None)
+        o = ws.cell(row=hang, column=c_lw)
         o.font = Font(name=th.PHONG_NOI_DUNG, size=10, italic=True, color="595959")
         o.fill = PatternFill("solid", fgColor=th.XAM_NHAT)
-        o.border = kieu_vien
-        o.alignment = Alignment(vertical="top", wrap_text=True)
         if d.cho_xem_lai:
             mau = (th.DO_CANH_BAO if d.nguon in {"khoi-dong-lanh", "ngoai-le", "uoc-tinh"}
                    else th.VANG_CANH_BAO)
             for cot in range(1, len(th.COT) + 1):
-                ws.cell(row=hang, column=cot).fill = PatternFill("solid", fgColor=mau)
+                if cot != th.C_MUC:
+                    ws.cell(row=hang, column=cot).fill = PatternFill("solid", fgColor=mau)
         if co_doi_chieu:
             _o_doi_chieu(ws, hang, d.doi_chieu, kieu_vien)
         cha = hang
         hang += 1
         hang = _ghi_dong_con(ws, d, hang, kieu_vien, n_cot)
         if hang > cha + 1:
-            ws.cell(row=cha, column=3).font = Font(name=th.PHONG_NOI_DUNG, size=10, bold=True)
+            ws.cell(row=cha, column=th.C_TEN).font = Font(name=th.PHONG_NOI_DUNG, size=10, bold=True)
             ws.row_dimensions[cha].collapsed = True
 
     hang_tong = hang
@@ -128,7 +134,7 @@ def ghi_bao_cao(
         c = ws.cell(row=hang_tong, column=cot)
         c.fill = PatternFill("solid", fgColor=th.TIM)
         c.font = Font(name=th.PHONG_TIEU_DE, size=10, bold=True, color=th.TRANG)
-        if 5 <= cot <= 11:
+        if cot in tien:
             # WR-08 (Head of FIN muốn có công thức): chỉ cộng dòng KHÁCH (có Code) — dòng con job không
             # có Code nên không bị cộng trùng; sửa số trên file thì dòng tổng tự đổi theo
             cl = get_column_letter(cot)
@@ -141,17 +147,31 @@ def ghi_bao_cao(
     ws.sheet_properties.outlinePr = Outline(summaryBelow=False, summaryRight=True)
 
     ws.auto_filter.ref = f"A{th.DONG_TIEU_DE}:{get_column_letter(n_cot)}{hang_tong - 1}"
-    # WR-12 (user 27/10: "cột previous week bị khoá"): gõ vào ô lý do tuần trước thì Excel báo lỗi và không nhận.
-    # Không khoá sheet bằng mật khẩu (khoá sheet thì không bấm gập/mở được dòng job). Dán đè vẫn lọt, nhưng tool không
-    # bao giờ đọc lại cột này — lý do tuần trước luôn lấy từ báo cáo tuần trước (đã chốt, xem runner.nap_ban_tay).
     if hang_tong > th.DONG_DAU_DU_LIEU:
+        from openpyxl.formatting.rule import FormulaRule
         from openpyxl.worksheet.datavalidation import DataValidation
+        dau, cuoi = th.DONG_DAU_DU_LIEU, hang_tong - 1
+        # WR-12 (user 27/10: "cột previous week bị khoá"): gõ vào ô lý do tuần trước thì Excel báo lỗi và không nhận.
+        # Không khoá sheet bằng mật khẩu (khoá sheet thì không bấm gập/mở được dòng job). Dán đè vẫn lọt, nhưng tool
+        # không bao giờ đọc lại cột này — lý do tuần trước luôn lấy từ báo cáo tuần trước (đã chốt).
         dv = DataValidation(type="custom", formula1="FALSE", allow_blank=False, showErrorMessage=True,
                             errorStyle="stop", errorTitle="Chỉ để đọc",
                             error="Lý do tuần trước đã chốt. Ghi lý do tuần này ở cột Reason for late payment.")
         cl = get_column_letter(c_lw)
-        dv.add(f"{cl}{th.DONG_DAU_DU_LIEU}:{cl}{hang_tong - 1}")
+        dv.add(f"{cl}{dau}:{cl}{cuoi}")
         ws.add_data_validation(dv)
+        # WR-13 (FIN 05/11): 3 ô Sales đánh giá — chọn Có / Không
+        dv = DataValidation(type="list", formula1='"Có,Không"', allow_blank=True, showErrorMessage=True,
+                            errorTitle="Có / Không", error="Chọn Có hoặc Không.")
+        for k in th.COT_DANH_GIA:
+            cl = get_column_letter(k)
+            dv.add(f"{cl}{dau}:{cl}{cuoi}")
+        ws.add_data_validation(dv)
+        # WR-13: ô Mức độ tô màu kiểu Excel (Good / Neutral / Bad), chỉ tô ô
+        cl = get_column_letter(th.C_MUC)
+        for ten, (nen, chu) in th.MAU_MUC_FIN.items():
+            ws.conditional_formatting.add(f"{cl}{dau}:{cl}{cuoi}", FormulaRule(
+                formula=[f'${cl}{dau}="{ten}"'], fill=th.nen_cf(nen), font=Font(color=chu, bold=True)))
     _ghi_sheet_xem_lai(wb, dong, ngay_chot, tong_misa, doi_chieu or {})
     if them_sheet:
         them_sheet(wb)
@@ -171,6 +191,12 @@ NHAN_CON = "    └ "
 MAU_DC = {"khop": ("E2F0D9", "375623"), "do": ("F8CBCB", "9C0006"), "vang": ("FFF2CC", "7F6000"),
           "cam": ("FBE0C8", "843C0C"), "tim": ("E4DFEC", "5B3F86"), "kho_doi": ("EDEDED", "595959")}
 TEN_DC = {"khop": "Khớp", "do": "ĐỎ", "vang": "VÀNG", "cam": "CAM", "tim": "TÍM", "kho_doi": "Khó đòi"}
+
+
+def _cot_muc_risk() -> str:
+    """Chữ cột 'Risk level' ở sheet AR Risk (ô Mức độ ở Receivables lấy từ đó)."""
+    from .ghifull import COT_RISK
+    return get_column_letter([t for t, _, _ in COT_RISK].index("Risk level") + 1)
 
 
 def _cot_doi_chieu(ws) -> None:
@@ -209,7 +235,8 @@ def _ghi_dong_con(ws, d: DongBaoCao, hang: int, kieu_vien, n_cot: Optional[int] 
 
     def _nhan(g):
         if g.get("so_hd"):                    # v0.5: job từ Misa — số hoá đơn, ngày, trạng thái
-            return f"{NHAN_CON}{g['job']} · HĐ {g['so_hd']} ngày {g['ngay']:%d/%m/%Y}"
+            return (f"{NHAN_CON}{g['job']} · HĐ {g['so_hd']} ngày {g['ngay']:%d/%m/%Y}"
+                    + (f" · hạn {g['han']:%d/%m/%Y}" if g.get("han") else ""))
         return (f"{NHAN_CON}{g['job']}" + (f" · {g['nguon_ngay']} {g['ngay']:%d/%m/%Y}" if g["ngay"] else "")
                 + (" · theo bảng FIN" if g.get("tham_chieu") else ""))
     con = [(_nhan(g), g["tien"], g["sales"], g["job"], g.get("nhom") or [0.0] * 6,
@@ -220,13 +247,13 @@ def _ghi_dong_con(ws, d: DongBaoCao, hang: int, kieu_vien, n_cot: Optional[int] 
                 "SMS ghi dư — đã thu, chưa gạch paid (xem Review)")
         con.append((f"{NHAN_CON}{nhan}", d.can_doi, "", "", d.can_doi_nhom or [0.0] * 6, ""))
     for ten, tien, sale, job, nhom, tt in con:
-        o_tuoi = [(6 + i, v if abs(v) > 0.4 else None) for i, v in enumerate(nhom)]
+        o_tuoi = [(th.C_NHOM0 + i, v if abs(v) > 0.4 else None) for i, v in enumerate(nhom)]
         them = [(len(th.COT) + 1, tt or None)] if n_cot > len(th.COT) else []
-        for cot, v in ((3, ten), (5, tien), (12, sale), (13, job), *o_tuoi, *them):
+        for cot, v in ((th.C_TEN, ten), (th.C_TOTAL, tien), (th.C_SALES, sale), (th.C_JOB, job), *o_tuoi, *them):
             o = ws.cell(row=hang, column=cot, value=v)
             o.font = Font(name=th.PHONG_NOI_DUNG, size=9, color="595959",
                           italic=not job)
-            if 5 <= cot <= 11:
+            if th.C_TOTAL <= cot <= th.C_NHOM5:
                 o.number_format = DINH_DANG_TIEN
                 o.alignment = Alignment(horizontal="right")
         for cot in range(1, n_cot + 1):
@@ -562,6 +589,12 @@ def doc_bao_cao(duong_dan: Path) -> Dict[str, sg.HoSoKhach]:
             cot["job"] = c.column
         elif "ghi chú" in ten or ten in ("comment", "notes", "note"):
             cot["ghi_chu"] = c.column
+        elif "adverse" in ten or "bất lợi" in ten:
+            cot["dg0"] = c.column        # WR-13: 3 ô Sales đánh giá
+        elif "responds" in ten or "phản hồi" in ten:
+            cot["dg1"] = c.column
+        elif "broken promise" in ten or "thất hứa" in ten:
+            cot["dg2"] = c.column
         elif ("lý do" in ten or "reason" in ten) and "ly_do" not in cot \
                 and "last week" not in ten and "tuần trước" not in ten:
             cot["ly_do"] = c.column      # WR-11: bỏ qua cột "Reason last week" (chỉ để đọc)
@@ -594,9 +627,20 @@ def doc_bao_cao(duong_dan: Path) -> Dict[str, sg.HoSoKhach]:
             # câu tool tự viết không phải lời của Sales: đọc lại thì coi như trống
             ly_do="" if lay("ly_do").startswith(th.NHAN_TU_DONG) else lay("ly_do"),
             tong=round(float(total), 2), nhom=[round(v, 2) for v in nhom], nguon="ban-tay",
-            job=job,
+            job=job, danh_gia=([_co_khong(lay(f"dg{i}"), th.DANH_GIA_MAC_DINH[i]) for i in range(3)]
+                               if "dg0" in cot else []),
         )
     return ra
+
+
+def _co_khong(v: str, mac_dinh: str) -> str:
+    """Ô Có/Không do Sales chọn: chuẩn hoá cách gõ (co, x, yes / khong, no); trống hoặc lạ → mặc định."""
+    t = str(v or "").strip().lower()
+    if t in ("có", "co", "x", "yes", "y", "✓", "1"):
+        return "Có"
+    if t in ("không", "khong", "no", "n", "0", "-"):
+        return "Không"
+    return mac_dinh
 
 
 def nap_vao_so_ghi(so: sg.SoGhi, duong_dan: Path, ngay_chot: dt.date) -> int:

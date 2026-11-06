@@ -82,6 +82,19 @@ class DongRuiRo:
     cham: Dict[str, float] = field(default_factory=dict)   # so_hd, ty_le_thu_hoi, ty_le_qua_han, ty_le_tra_du
     diem: int = 0
     hang: str = ""
+    # WR-15: 5 mức màu của Head FIN (danhgia.muc_cuoi5)
+    khong_nang: bool = False             # file credit term: ✓ Không nâng hạng màu
+    so_hd_tre: int = 0                   # T3: hoá đơn trả trễ trong N tháng (tool đếm)
+    billing: float = 0.0                 # billing bình quân / tháng trong N tháng
+    he_so: Optional[float] = None        # hệ số điều khoản (tháng)
+    han_muc_ap: Optional[float] = None   # hạn mức áp dụng: hợp đồng, không có thì tạm tính
+    nguon_han_muc: str = ""              # Hợp đồng / Tạm tính / Thiếu dữ liệu
+    muc_goc: int = 0                     # 0–4 theo tuổi nợ
+    tieu_chi: List[int] = field(default_factory=lambda: [0, 0, 0, 0])   # T1..T4
+    nang: int = 0                        # +1 mức
+    nang_thang: int = 0                  # lên thẳng ít nhất Đỏ
+    muc5: int = 0                        # mức cuối 0–4
+    can_cu_goc: str = ""                 # phần căn cứ tool tính (tuổi nợ, T1–T4) — Excel nối thêm phần ô Sales
 
     @property
     def ly_do_hieu_luc(self) -> str:
@@ -90,7 +103,7 @@ class DongRuiRo:
 
     @property
     def ten_muc(self) -> str:
-        return th_.MUC_FIN[self.muc_fin - 1]
+        return th_.MUC_FIN[self.muc5]
 
     @property
     def qua_han(self) -> float:
@@ -137,6 +150,12 @@ class KetQuaFull:
     sms_cat: List[tuple] = field(default_factory=list)
     master: Dict[str, dict] = field(default_factory=dict)       # WR-11: file credit term đã đọc
     them_khach: str = ""                                        # WR-12: kết quả tự thêm khách mới vào file credit term
+    x: float = 0.0                                              # WR-15: ngưỡng T1 = MIN(X1, X2)
+    x1: float = 0.0
+    x2: float = 0.0
+    y: float = 0.0                                              # ngưỡng T4 khách mới
+    tham_so: Dict[str, object] = field(default_factory=dict)   # sheet Tham số của file credit term
+    co_tham_so: bool = False                                    # file credit term đã có sheet Tham số
     sms_khong_misa: List[tuple] = field(default_factory=list)
     sms_chua_ghep: List[tuple] = field(default_factory=list)
     # v0.5 (WR-06): đối chiếu job chưa thanh toán trên Misa
@@ -475,10 +494,6 @@ def danh_gia_fin(r: DongRuiRo, d: DongBaoCao, kct, tai_ngay: dt.date, da_tt=None
     r.ngay_hd_dau = kct.ngay_hd_dau() if kct is not None else None
     r.nhom_kh = dg.nhom_khach(r.ngay_hd_dau, tai_ngay)
     r.muc_ngay = dg.muc_theo_ngay(r.ngay_qh)
-    r.muc_fin = dg.muc_cuoi(r.ngay_qh, r.danh_gia)
-    r.can_cu = dg.can_cu(r.ngay_qh, r.danh_gia)
-    r.hinh_thuc = dg.hinh_thuc(r.muc_fin, r.nhom_kh)
-    r.phuong_an = dg.phuong_an(r.muc_fin, r.nhom_kh, r.ngay_qh, r.danh_gia)
     tk = kct.thong_ke_cham_diem(tai_ngay, da_tt) if kct is not None else {"so_hd": 0, "so_tra_du": 0,
                                                                            "gia_tri": 0.0, "da_thu": 0.0}
     r.cham = {"so_hd": tk["so_hd"],
@@ -489,11 +504,47 @@ def danh_gia_fin(r: DongRuiRo, d: DongBaoCao, kct, tai_ngay: dt.date, da_tt=None
     return r
 
 
+def danh_gia_mau5(r: DongRuiRo, x: float, y: float, so_hd_tre: int) -> DongRuiRo:
+    """WR-15 (Head FIN): mức cuối 0–4 = mức gốc theo tuổi nợ, +1 nếu có T1–T4 (trừ khách 'Không nâng hạng màu'), lên thẳng
+    ít nhất Đỏ khi mất liên lạc / bất lợi / thất hứa. Cùng luật với ghifull.cong_thuc_fin và dashboard."""
+    from . import danhgia as dg
+    J, Q = r.cuoi_ky, r.qua_han
+    r.muc_goc = dg.muc_goc5(r.nhom)
+    r.tieu_chi = [
+        int(Q > 0.5 and Q >= x),                                                         # T1
+        int(r.han_muc_ap is not None and J > r.han_muc_ap),                              # T2
+        int(r.so_hd_tre >= so_hd_tre),                                                   # T3
+        int(J > 0.5 and (r.co_hd is False or not (r.credit_term or "").strip()
+                         or (r.tt_total < 0.5 and J >= y))),                             # T4
+    ]
+    r.nang = int(not r.khong_nang and any(r.tieu_chi))
+    r.nang_thang = int(dg.nang_thang(r.ly_do_hieu_luc, r.danh_gia, Q > 0.5))
+    r.muc5 = dg.muc_cuoi5(r.muc_goc, bool(r.nang), bool(r.nang_thang), Q > 0.5, r.danh_gia)
+    r.muc_fin = dg.muc3_tu_muc5(r.muc5)
+    tc = ("T1 quá hạn ≥ X", "T2 dư nợ > hạn mức", f"T3 {r.so_hd_tre} hoá đơn trả trễ",
+          "T4 chưa có HĐ / credit term / khách mới nợ ≥ Y")
+    phan = [f"Tuổi nợ: {dg.MUC5[r.muc_goc]}."]
+    if any(r.tieu_chi):
+        phan.append("; ".join(t for t, v in zip(tc, r.tieu_chi) if v) + (" (không nâng: khách ✓)." if r.khong_nang
+                                                                          else " → +1."))
+    r.can_cu_goc = " ".join(phan)
+    if r.nang_thang:
+        phan.append("Lên thẳng Đỏ (mất liên lạc / bất lợi / thất hứa).")
+    if Q > 0.5 and (list(r.danh_gia) + ["", ""])[1] == "Không":
+        phan.append("Không phản hồi.")
+    r.can_cu = " ".join(phan)
+    r.hinh_thuc = dg.hinh_thuc(r.muc_fin, r.nhom_kh)
+    r.phuong_an = dg.phuong_an(r.muc_fin, r.nhom_kh, r.ngay_qh, r.danh_gia)
+    return r
+
+
 def tinh_full(th: TongHop, ct: ctm.ChiTiet, so: sg.SoGhi, dong_sms=None, bang=None,
               pt: Optional[PhaiTra] = None, ngay_chot: Optional[dt.date] = None,
               job_no_cu: Optional[Dict[str, list]] = None, job_misa=None,
               credit_terms: Optional[Dict[str, str]] = None, ma_no_cu=None,
-              master: Optional[Dict[str, dict]] = None) -> KetQuaFull:
+              master: Optional[Dict[str, dict]] = None, tham_so=None) -> KetQuaFull:
+    from . import danhgia as dg
+    ts, bang_term = tham_so or (dict(dg.THAM_SO_MAC_DINH), list(dg.HE_SO_TERM_MAC_DINH))
     # Ngày chốt (tên trang sổ ghi, "At dd Mon yyyy") = hôm sau ngày cuối kỳ, như file Tuổi nợ cũ.
     # Tuổi nợ tính tại ngày cuối kỳ: hoá đơn đến hạn đúng ngày đó vẫn là "Current".
     ngay_chot = ngay_chot or th.den_ngay + dt.timedelta(days=1)
@@ -711,12 +762,34 @@ def tinh_full(th: TongHop, ct: ctm.ChiTiet, so: sg.SoGhi, dong_sms=None, bang=No
         if master:
             m = master.get(k.ma.upper())
             r.han_muc = (m or {}).get("han_muc")
+            r.khong_nang = bool((m or {}).get("khong_nang"))
             r.link_hd = (m or {}).get("link_hd") or ""
             co_cot = any(v.get("co_hd") is not None for v in master.values())
             r.co_hd = bool((m or {}).get("co_hd")) if co_cot else None
         r.chia_sales = chia_theo_sales(d.dong_con)
         r.danh_gia = list(d.danh_gia)
+        # WR-15: T2 hạn mức (hợp đồng, không có thì tạm tính) và T3 hoá đơn trả trễ
+        so_thang = int(ts.get("so_thang") or 6)
+        if kct is not None:
+            r.billing = kct.billing_binh_quan(tai_ngay, so_thang)
+            r.so_hd_tre = len(kct.hoa_don_tra_tre(tai_ngay, lambda n, t=term: sg.han_tu_term(n, t), da_tt,
+                                                  so_ngay=int(ts.get("ngay_tre") or 15), so_thang=so_thang))
+        r.he_so = dg.he_so_term(term, bang_term, sg.han_tu_term)
+        if r.han_muc:
+            r.han_muc_ap, r.nguon_han_muc = float(r.han_muc), "Hợp đồng"
+        elif r.he_so is not None and r.billing > 0:
+            r.han_muc_ap = round(r.billing * r.he_so * float(ts.get("he_so_an_toan") or 1), 2)
+            r.nguon_han_muc = "Tạm tính"
+        else:
+            r.nguon_han_muc = "Thiếu dữ liệu"
         kq.rui_ro.append(danh_gia_fin(danh_gia_rui_ro(r, ngay_chot), d, kct, tai_ngay, da_tt))
+
+    # WR-15: X cần nợ quá hạn của mọi khách (top 15%) → tính mức màu sau vòng lặp
+    kq.x, kq.x1, kq.x2 = dg.nguong_x([r.qua_han for r in kq.rui_ro], ts)
+    kq.y = float(ts["y"]) if isinstance(ts.get("y"), (int, float)) else round(kq.x / 2, 2)
+    kq.tham_so = ts
+    for r in kq.rui_ro:
+        danh_gia_mau5(r, kq.x, kq.y, int(ts.get("so_hd_tre") or 2))
 
     if job_misa is not None:
         # khách có trên Tổng hợp nhưng không còn dư nợ, mà hoá đơn vẫn ghi chưa thanh toán

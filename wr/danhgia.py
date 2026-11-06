@@ -10,11 +10,21 @@ Head FIN + FIN chốt 05/11/2026).
   lãi gộp và Client Master (WR-14).
 - Nhóm khách Mới / Thường xuyên / Lâu năm (tự xếp) × mức → Phương án xử lý (bảng 'mức độ' của FIN) và Hình thức thanh
   toán đề xuất. Điểm lịch sử thanh toán A–D chỉ để tham khảo.
-Cùng luật với công thức ở sheet AR Risk (ghifull.cong_thuc_fin) — sửa một chỗ thì sửa cả hai."""
+
+WR-15 (Head FIN, file 'W43 tiêu chí nâng hạng rủi ro v3', user 06/11): MÀU / MỨC CUỐI 0–4 thay 3 mức ở trên:
+- Mức gốc theo nhóm tuổi CŨ NHẤT còn tiền: 0 Trắng chưa quá hạn · 1 Vàng 1–30 · 2 Cam 31–60 · 3 Đỏ 61–90 · 4 Tím ≥ 91.
+- +1 mức (không cộng dồn) khi có ít nhất một: T1 quá hạn ≥ X · T2 dư nợ > hạn mức · T3 ≥ N hoá đơn trả trễ > 15 ngày trong
+  6 tháng · T4 chưa có hợp đồng / chưa có credit term / khách mới nợ ≥ Y — trừ khách ✓ "Không nâng hạng màu".
+- Lên thẳng ít nhất Đỏ: lý do có mất liên lạc / hứa không trả…, ô Sales bất lợi = Có, hoặc đang quá hạn + thất hứa = Có.
+  Đang quá hạn + không phản hồi → ít nhất Cam.
+- 3 mức FIN ở trên vẫn dùng cho Phương án xử lý / Hình thức thanh toán: Trắng, Vàng → 1 · Cam → 2 · Đỏ, Tím → 3.
+Tham số (lãi gộp, tỷ lệ, Y, N…) FIN sửa mỗi tháng ở sheet "Tham số" của file credit term (khachhang.doc_tham_so).
+Cùng luật với công thức ở sheet AR Risk (ghifull.cong_thuc_fin) và dashboard (app.js) — sửa một chỗ thì sửa cả ba."""
 from __future__ import annotations
 
 import datetime as dt
-from typing import Optional, Sequence, Tuple
+import math
+from typing import Dict, List, Optional, Sequence, Tuple
 
 MUC = ("Bình thường", "Cảnh báo", "Rủi ro cao")      # mã 1, 2, 3
 NGUONG_BINH_THUONG = 30                               # quá hạn tối đa còn Bình thường (ngày)
@@ -119,3 +129,90 @@ def cham_diem(ngay_qh: int, ty_le_thu_hoi: float, ty_le_qua_han: float, ty_le_tr
     d = (_bac(ngay_qh, DIEM_NGAY, False) + _bac(ty_le_thu_hoi, DIEM_THU_HOI, True)
          + _bac(ty_le_qua_han, DIEM_QUA_HAN, False) + _bac(ty_le_tra_du, DIEM_TRA_DU, True))
     return d, next(h for h, toi_thieu in HANG if d >= toi_thieu)
+
+
+# --- WR-15: 5 mức màu của Head FIN -------------------------------------------------------------------------------
+MUC5 = ("Trắng", "Vàng", "Cam", "Đỏ", "Tím")
+# Nâng thẳng lên Đỏ theo lý do. Không dùng "không trả" trơn — bắt nhầm câu như "khách không trả kịp vì bank" (W43).
+TU_KHOA_NANG_THANG = ("mất liên lạc", "không liên lạc được", "hứa không trả", "từ chối thanh toán",
+                      "từ chối trả", "không chịu thanh toán", "không chịu trả", "bỏ trốn")
+THAM_SO_MAC_DINH: Dict[str, object] = {
+    "quy": "",                 # VD Q3/2026 — chỉ để ghi chú
+    "lai_gop": [None, None, None],   # lãi gộp 3 tháng của quý gần nhất (VND)
+    "ty_le_lai_gop": 0.25,     # X1 = 25% × lãi gộp bình quân / tháng
+    "top_qua_han": 0.15,       # X2 = nợ quá hạn của khách cuối trong top 15% (làm tròn lên)
+    "y": 50_000_000,           # T4: khách mới nợ ≥ Y (Head FIN: giả định tạm). Trống → Y = X / 2
+    "he_so_an_toan": 1.3,      # T2: hạn mức tạm tính = billing bình quân × hệ số term × 1,3
+    "so_hd_tre": 2,            # T3: từ N hoá đơn trả trễ
+    "ngay_tre": 15,            # trễ hơn hạn quá 15 ngày
+    "so_thang": 6,             # xét 6 tháng gần nhất (T3 và billing bình quân)
+}
+# Bảng hệ số điều khoản (tháng) — sheet Tham_số của Head FIN; FIN thêm dòng cho kiểu term mới
+HE_SO_TERM_MAC_DINH: List[Tuple[str, float, str]] = [
+    ("30 days", 1.0, "30 ngày từ ngày hoá đơn = 1"),
+    ("45 days", 1.5, "45 ngày = 1,5"),
+    ("60 days", 2.0, "60 ngày = 2"),
+    ("20 days", 20 / 30, "Số ngày / 30"),
+    ("15 days", 0.5, "Số ngày / 30"),
+    ("14 days", 14 / 30, "Số ngày / 30"),
+    ("7 days", 7 / 30, "Số ngày / 30"),
+    ("thanh toán ngay", 0.0, "0 tháng → hạn mức tạm tính = 0, mọi dư nợ đều vượt"),
+    ("15 ngày kể từ ngày gửi bảng công nợ", 1.0, "Gửi bảng công nợ cuối tháng: 15 ngày + 15 ngày bình quân"),
+    ("14 ngày của tháng tiếp theo", 29 / 30, "Ngày 14 tháng sau ≈ 14 ngày từ cuối tháng + 15 ngày bình quân"),
+    ("30 ngày kể từ ngày nhận đủ hồ sơ thanh toán", 1.0, "Tính như 30 ngày từ hoá đơn"),
+]
+
+
+def muc_goc5(nhom: Sequence[float], nguong: float = 0.5) -> int:
+    """Nhóm tuổi CŨ NHẤT còn tiền: 0 chưa quá hạn · 1 (1–30) · 2 (31–60) · 3 (61–90) · 4 (91–120, 120+)."""
+    if nhom[4] + nhom[5] > nguong:
+        return 4
+    for i in (3, 2, 1):
+        if nhom[i] > nguong:
+            return i
+    return 0
+
+
+def nguong_x(qua_han: Sequence[float], ts: Dict) -> Tuple[float, float, float]:
+    """(X, X1, X2). X1 = tỷ lệ × lãi gộp bình quân các tháng đã nhập (0 nếu chưa nhập). X2 = nợ quá hạn của khách xếp
+    cuối trong top 15% khách đang quá hạn (số khách làm tròn lên). X = MIN(X1, X2); chưa có lãi gộp thì X = X2."""
+    lg = [float(v) for v in ts.get("lai_gop") or [] if isinstance(v, (int, float)) and v > 0]
+    x1 = (sum(lg) / len(lg)) * float(ts.get("ty_le_lai_gop") or 0) if lg else 0.0
+    ds = sorted((q for q in qua_han if q > 0.5), reverse=True)
+    k = math.ceil(round(len(ds) * float(ts.get("top_qua_han") or 0), 9)) if ds else 0
+    x2 = ds[k - 1] if k else 0.0
+    return (min(x1, x2) if x1 > 0 and x2 > 0 else (x1 or x2)), round(x1, 2), round(x2, 2)
+
+
+def he_so_term(term: str, bang: Sequence[Tuple[str, float, str]], han_cua=None) -> Optional[float]:
+    """Số tháng của điều khoản thanh toán: tra bảng (đúng chữ, không phân biệt hoa thường); không có trong bảng thì
+    tự tính = số ngày từ hoá đơn ngày 15 tới hạn / 30. Chưa có term → None."""
+    t = " ".join(str(term or "").split()).lower()
+    if not t:
+        return None
+    for ten, hs, *_ in bang:
+        if " ".join(str(ten).split()).lower() == t:
+            return float(hs)
+    if han_cua is None:
+        return None
+    goc = dt.date(2026, 1, 15)
+    return round((han_cua(goc, term) - goc).days / 30, 4)
+
+
+def nang_thang(ly_do: str, danh_gia: Sequence[str], dang_qua_han: bool) -> bool:
+    bat_loi, _phan_hoi, that_hua = (list(danh_gia) + ["", "", ""])[:3]
+    c = (ly_do or "").lower()
+    return bat_loi == "Có" or (dang_qua_han and that_hua == "Có") or any(k in c for k in TU_KHOA_NANG_THANG)
+
+
+def muc_cuoi5(goc: int, nang: bool, thang: bool, dang_qua_han: bool, danh_gia: Sequence[str]) -> int:
+    phan_hoi = (list(danh_gia) + ["", "", ""])[1]
+    m = max(goc, 3) if thang else goc + (1 if nang else 0)
+    if dang_qua_han and phan_hoi == "Không":
+        m = max(m, 2)
+    return min(4, m)
+
+
+def muc3_tu_muc5(m5: int) -> int:
+    """5 mức màu → 3 mức FIN cho Phương án xử lý / Hình thức thanh toán."""
+    return 3 if m5 >= 3 else 2 if m5 == 2 else 1

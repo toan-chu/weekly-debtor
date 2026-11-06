@@ -1,12 +1,14 @@
 Cập nhật: 2026-11-05 12:10 UTC+7 - bởi claude
 
 ## Việc đang mở
+WR-15 - người làm claude - chờ-soát - vòng 1/2 - 5 mức màu Head FIN (v3), chỉ tô ô Risk level, sheet Tham số trong file credit term (v0.9; chờ user commit + chạy lại W44 trên máy FIN)
 WR-13 - người làm claude - chờ-soát - vòng 1/2 - tiêu chí FIN 3 mức + 3 ô Sales + điểm A–D + hạn từng job (v0.8; chờ user commit + chạy lại W44 trên máy FIN)
-WR-14 - người làm claude - chờ-đề-bài - vòng 0/2 - hợp đồng PDF, hạn mức nợ, lãi gộp (chờ Client Master SharePoint List)
+WR-14 - người làm claude - chờ-đề-bài - vòng 0/2 - hợp đồng PDF, hạn mức từ Client Master (chờ SharePoint List; T1 lãi gộp + T2 tạm tính đã làm ở WR-15)
 WR-12 - người làm claude - chờ-soát - vòng 1/2 - khách mới tự vào file credit term, link HĐ, khoá tuần đã chốt (chờ lần chạy 2 trên máy FIN: link + hạn mức)
 WR-02 - người làm claude - chờ-đề-bài - vòng 0/2 - so bản tay trên cùng bộ file Misa (chờ user: còn cần không)
 
 ## Hôm qua
+- 06/11: WR-15 (v0.9) màu 5 mức Head FIN, 99 phép thử đạt; W44 trong máy ảo: 54/55 khách bị +1 (T2 tạm tính 36, T4 38) — cần Head FIN xem. Repo đổi tên weekly-debtor (3_Sua_lich_chay.bat).
 - 05/11: WR-13 (v0.8) xong: 92 phép thử đạt; W44 chạy lại trong máy ảo: tổng y bản cũ, 36/5/14 khách Bình thường/Cảnh báo/Rủi ro cao, Excel = Python 55/55.
 - 05/11: user gửi W44 (chạy 30/10 trên máy FIN) + file tiêu chí đánh giá khách hàng phải thu do FIN ban hành (3 mức, 3 tiêu chí nâng hạng). Đóng WR-01, 03–11.
 - 20/10: WR-09 sửa theo FIN sau W42; chạy lại W42 khớp bản human 64/68 dòng job, 4 khách tool theo sổ, chờ FIN xác nhận.

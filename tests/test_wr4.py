@@ -282,7 +282,8 @@ def test_tha_4_file_ra_full_report(ws):
     assert runner.quet_thu_muc(ws) == 1
     f = next(ws.ra.glob("2026_W40_Credit_Report_*.xlsx"))
     wb = openpyxl.load_workbook(f)
-    assert wb.sheetnames == [th.SHEET_SUMMARY, th.SHEET_BANG, th.SHEET_RISK, th.SHEET_CONTRACT, th.SHEET_PAYABLE,
+    assert wb.sheetnames == [th.SHEET_SUMMARY, th.SHEET_BANG, th.SHEET_RISK, th.SHEET_DANH_GIA, th.SHEET_THAM_SO,
+                             th.SHEET_CONTRACT, th.SHEET_PAYABLE,
                              th.SHEET_CASH, th.SHEET_INVOICES, th.SHEET_METHOD, th.SHEET_REVIEW]
     rec = wb[th.SHEET_BANG]
     assert [c.value for c in rec[5]][2] == "Customer's Name" and rec.cell(5, th.C_JOB).value == "Job Number"

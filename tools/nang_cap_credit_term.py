@@ -19,7 +19,7 @@ def nang_cap(src, dst=None) -> Path:
     if dst.resolve() == src.resolve():
         raise SystemExit("File mới phải khác file cũ (tool không ghi đè file của người dùng).")
     dong, cot_them, sales = kh.doc_file(src)
-    kh.ghi_master(dst, dong, sales, cot_them=cot_them)
+    kh.ghi_master(dst, dong, sales, cot_them=cot_them, tham_so=kh.doc_tham_so_file(src))
     print("Đã ghi", dst)
     print(len(dong), "khách;", sum(1 for d in dong if kh.la_tich(d.get("co_hd"))), "đã ✓ hợp đồng;",
           sum(1 for d in dong if d.get("term")), "có term;",

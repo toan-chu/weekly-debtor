@@ -31,7 +31,10 @@
   // Đã chạy bộ kiểm tra màu dataviz: đạt cả mù màu; quá 7 mục gộp "Khác" (xám).
   const CAT = ["#2a78d6", "#1baf7a", "#4a3aa7", "#0e9aa7", "#7a3fc2", "#5b8def", "#008300"];
   const OTHER = "#a39fae";
-  const MUC_FIN = ["Bình thường", "Cảnh báo", "Rủi ro cao"];   // WR-13, cùng wr/thuonghieu.MUC_FIN
+  const MUC_FIN = ["Trắng", "Vàng", "Cam", "Đỏ", "Tím"];   // WR-15 (Head FIN), cùng wr/thuonghieu.MUC_FIN
+  // lên thẳng Đỏ theo lý do — cùng wr/danhgia.TU_KHOA_NANG_THANG
+  const KW_DO = ["mất liên lạc", "không liên lạc được", "hứa không trả", "từ chối thanh toán", "từ chối trả",
+                 "không chịu thanh toán", "không chịu trả", "bỏ trốn"];
   const TIER_COLOR = { N4: "#8e1b2b", N3: "#e34948", N2: "#f08a3c", N1: "#f2c14e", X: "#2a78d6", "0": "#1baf7a" };
   const AUTO = "[TỰ ĐỘNG]";
   const KW_X = ["cấn trừ", "bù trừ", "thanh toán hộ", "supplier của mình"];
@@ -160,6 +163,9 @@
       const pd = r[col("Promise date")];
       c.pdFile = typeof pd === "number" ? new Date(Math.round((pd - 25569) * 864e5)) : pd instanceof Date ? pd : null;
       c.maxQh = col("Max days overdue") >= 0 ? n0(r[col("Max days overdue")]) : null;
+      // WR-15: mức gốc + "+1" do tool tính (số); lên thẳng Đỏ / mức cuối tính lại vì phụ thuộc ô Sales, lý do
+      c.base = col("Base level (0-4)") >= 0 ? n0(r[col("Base level (0-4)")]) : null;
+      c.up = col("Upgrade +1") >= 0 ? n0(r[col("Upgrade +1")]) : 0;
       c.opening = n0(r[col("Opening (Misa)")]); c.inc = n0(r[col("Increase")]); c.dec = n0(r[col("Decrease")]);
     }
     d.cust.forEach(tierOf);
@@ -292,12 +298,15 @@
     c.reasonShown = reason || (c.reasonLw && !c.reasonLw.startsWith(AUTO) ? "Chưa có lý do tuần này · tuần trước: " + c.reasonLw
       : "Chưa có lý do tuần này");
     c.isAuto = !reason;
-    // WR-13: mức rủi ro theo tiêu chí FIN — cùng luật wr/danhgia.py (ô trong file là công thức, có thể chưa có giá trị)
-    const n = c.maxQh != null ? c.maxQh : c.overdue > 0.5 ? [0, 30, 60, 90, 120, 121][c.oldest] : 0;
-    let m = n > 60 ? 3 : n > 30 ? 2 : 1;
-    if (c.dg[0] === "Có" || (n > 0 && c.dg[2] === "Có")) m = 3;
-    if (n > 0 && c.dg[1] === "Không") m = Math.max(m, 2);
-    c.mucFin = m; c.mucTen = MUC_FIN[m - 1];
+    // WR-15: 5 mức màu Head FIN — cùng luật wr/danhgia.muc_cuoi5 (ô trong file là công thức, có thể chưa có giá trị)
+    const qh = c.overdue > 0.5;
+    const base = c.base != null ? c.base : c.b[4] + c.b[5] > 0.5 ? 4 : c.b[3] > 0.5 ? 3 : c.b[2] > 0.5 ? 2 : c.b[1] > 0.5 ? 1 : 0;
+    const ld = (reason.trim() ? reason : c.reasonLw || "").toLowerCase();
+    const thang = c.dg[0] === "Có" || (qh && c.dg[2] === "Có") || KW_DO.some((k) => ld.includes(k));
+    let m = thang ? Math.max(base, 3) : base + (c.up || 0);
+    if (qh && c.dg[1] === "Không") m = Math.max(m, 2);
+    m = Math.min(4, m);
+    c.mucFin = m; c.mucTen = MUC_FIN[m];
   }
 
   // ---------------- trang (tab) và địa chỉ ----------------
@@ -724,7 +733,7 @@
         if (!B.length) return (el.innerHTML = `<p class="empty">Không có khách nợ xấu trong bộ lọc này.</p>`);
         if (t === "bar") return hbar(el, B.slice(0, 15).map((c) => ({ k: c.code, label: c.name, value: c.overdue, color: TIER_COLOR[c.tierKey],
           tip: custTip(c) + `<div class="mu">${esc(c.action || "")}</div>`, click: () => pick(c) })));
-        let h = `<div class="table-wrap"><table class="tbl"><tr><th>Khách hàng</th><th>Mức độ (FIN)</th><th>Nhóm</th><th class="n">Quá hạn</th><th class="n">Trên 120 ngày</th><th>Lý do / nhận xét</th><th>Việc cần làm</th><th>Sales</th></tr>`;
+        let h = `<div class="table-wrap"><table class="tbl"><tr><th>Khách hàng</th><th>Mức màu</th><th>Nhóm</th><th class="n">Quá hạn</th><th class="n">Trên 120 ngày</th><th>Lý do / nhận xét</th><th>Việc cần làm</th><th>Sales</th></tr>`;
         B.forEach((c) => (h += `<tr class="go" data-c="${esc(c.code)}"><td><b>${esc(c.name)}</b>${c.ceo ? '<br><span class="ceo">CEO cần xem</span>' : ""}</td><td>${mucBadge(c)}</td><td>${badge(c)}</td><td class="n">${money(c.overdue)}</td><td class="n">${money(c.b[5])}</td><td>${reasonCell(c)}</td><td><small>${esc(c.action)}</small></td><td>${esc(salesOf(c).join(", "))}</td></tr>`));
         el.innerHTML = h + "</table></div>";
         el.querySelectorAll("tr.go").forEach((tr) => (tr.onclick = () => pick(D.cust.find((c) => c.code === tr.dataset.c))));
@@ -809,16 +818,21 @@
 
   function hbar(el, items, narrow) {
     const max = Math.max(...items.map((x) => Math.abs(x.value)), 1);
-    const W = Math.max(360, el.clientWidth || (narrow ? 560 : 1100)), rowH = 30, R = 80, H = items.length * rowH + 8;
-    const L = Math.min(300, Math.round(W * 0.34)), maxCh = Math.floor((L - 16) / 7.9);
+    const W = Math.max(360, el.clientWidth || (narrow ? 560 : 1100)), R = 80;
+    let L = Math.min(300, Math.round(W * 0.34)), maxCh = Math.floor((L - 16) / 7.9);
+    // user 06/11: tên khách bị cắt "AIRSPACE TECH…" → tên dài thì để tên nguyên một dòng phía trên thanh
+    const tren = items.some((x) => String(x.label || "").length > maxCh);
+    if (tren) { L = 0; maxCh = Math.floor((W - 8) / 7.2); }
+    const rowH = tren ? 46 : 30, H = items.length * rowH + 8;
     let g = "";
     items.forEach((x, i) => {
-      const w = Math.max(6, ((W - L - R) * Math.abs(x.value)) / max), y = 4 + i * rowH;
+      const w = Math.max(6, ((W - L - R) * Math.abs(x.value)) / max), y = 4 + i * rowH, yb = tren ? y + 20 : y;
       const lab = gon(x.label, maxCh);
-      g += `<g data-k="${esc(x.k)}"><rect x="0" y="${y}" width="${W}" height="${rowH}" fill="transparent"/>
-        <text x="${L - 10}" y="${y + 19}" text-anchor="end" style="fill:var(--ink-2);font-size:12px">${esc(lab)}</text>
-        <path d="M${L},${y + 6} h${w - 4} a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-${w - 4} z" fill="${x.color}"/>
-        <text x="${L + w + 8}" y="${y + 19}" style="fill:var(--ink);font-size:12px">${short(x.value)}</text></g>`;
+      g += `<g data-k="${esc(x.k)}"><rect x="0" y="${y}" width="${W}" height="${rowH}" fill="transparent"/>` +
+        (tren ? `<text x="0" y="${y + 14}" style="fill:var(--ink-2);font-size:12px">${esc(lab)}</text>`
+              : `<text x="${L - 10}" y="${y + 19}" text-anchor="end" style="fill:var(--ink-2);font-size:12px">${esc(lab)}</text>`) +
+        `<path d="M${L},${yb + 6} h${w - 4} a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-${w - 4} z" fill="${x.color}"/>
+        <text x="${L + w + 8}" y="${yb + 19}" style="fill:var(--ink);font-size:12px">${short(x.value)}</text></g>`;
     });
     el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">${g}</svg>`;
     wire(el, items);
@@ -826,14 +840,19 @@
 
   function stackBar(el, rows, names, colors) {
     const max = Math.max(...rows.map((r) => r.total), 1);
-    const W = Math.max(360, el.clientWidth || 1100), rowH = 30, R = 80, H = rows.length * rowH + 8;
-    const L = Math.min(300, Math.round(W * 0.34)), maxCh = Math.floor((L - 16) / 7.9);
+    const W = Math.max(360, el.clientWidth || 1100), R = 80;
+    let L = Math.min(300, Math.round(W * 0.34)), maxCh = Math.floor((L - 16) / 7.9);
+    const tren = rows.some((r) => String(r.label || "").length > maxCh);     // như hbar: tên dài → dòng riêng
+    if (tren) { L = 0; maxCh = Math.floor((W - 8) / 7.2); }
+    const rowH = tren ? 46 : 30, H = rows.length * rowH + 8;
     let g = "";
     rows.forEach((r, i) => {
-      const y = 4 + i * rowH; let x = L;
-      g += `<g data-k="${esc(r.k)}"><rect x="0" y="${y}" width="${W}" height="${rowH}" fill="transparent"/><text x="${L - 10}" y="${y + 19}" text-anchor="end" style="fill:var(--ink-2);font-size:12px">${esc(gon(r.label, maxCh))}</text>`;
-      r.parts.forEach((p) => { if (p.value <= 0.5) return; const w = ((W - L - R) * p.value) / max; g += `<rect x="${x}" y="${y + 6}" width="${Math.max(1, w - 2)}" height="18" rx="2" fill="${p.color}"/>`; x += w; });
-      g += `<text x="${x + 8}" y="${y + 19}" style="fill:var(--ink);font-size:12px">${short(r.total)}</text></g>`;
+      const y = 4 + i * rowH, yb = tren ? y + 20 : y; let x = L;
+      g += `<g data-k="${esc(r.k)}"><rect x="0" y="${y}" width="${W}" height="${rowH}" fill="transparent"/>` +
+        (tren ? `<text x="0" y="${y + 14}" style="fill:var(--ink-2);font-size:12px">${esc(gon(r.label, maxCh))}</text>`
+              : `<text x="${L - 10}" y="${y + 19}" text-anchor="end" style="fill:var(--ink-2);font-size:12px">${esc(gon(r.label, maxCh))}</text>`);
+      r.parts.forEach((p) => { if (p.value <= 0.5) return; const w = ((W - L - R) * p.value) / max; g += `<rect x="${x}" y="${yb + 6}" width="${Math.max(1, w - 2)}" height="18" rx="2" fill="${p.color}"/>`; x += w; });
+      g += `<text x="${x + 8}" y="${yb + 19}" style="fill:var(--ink);font-size:12px">${short(r.total)}</text></g>`;
     });
     el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">${g}</svg>
       <div class="legend">${names.map((n, i) => `<span><i style="background:${colors[i]}"></i>${n}</span>`).join("")}</div>`;

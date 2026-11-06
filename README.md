@@ -1,10 +1,10 @@
-# 📊 Báo cáo công nợ tuần — Full Credit Report v0.8
+# 📊 Báo cáo công nợ tuần — weekly debtor report
 
 [![License](https://img.shields.io/badge/license-nội%20bộ%20Trustana-4d148c?style=for-the-badge)](#)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-4d148c?style=for-the-badge&logo=python&logoColor=white)](#)
 [![Hạ tầng](https://img.shields.io/badge/OneDrive%20%2B%20Task%20Scheduler-0078D4?style=for-the-badge)](#)
 [![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#)
-[![Phép thử](https://img.shields.io/badge/phép%20thử-92%20đạt-2ea043?style=for-the-badge)](#️-dành-cho-người-bảo-trì)
+[![Phép thử](https://img.shields.io/badge/phép%20thử-99%20đạt-2ea043?style=for-the-badge)](#️-dành-cho-người-bảo-trì)
 
 > **Mỗi tuần tự ra một file Excel cho TRUSTANA Việt Nam: khách còn nợ bao nhiêu, đã trả bao nhiêu, mình còn nợ vendor bao nhiêu, khách nào đáng lo — FIN và kế toán trưởng không phải làm tay.**
 > FIN thả 6 file (5 Misa + 1 SMS) vào `input/` -> tool chạy ngầm 15 phút một lần, tính tuổi nợ từng hoá đơn -> báo cáo tuần và dashboard xuất hiện ở thư mục gốc workspace.
@@ -17,6 +17,7 @@
 | 👩‍💼 **FIN** | Xem cột **Đối chiếu** + tab Review, sửa chỗ ĐỎ / CAM trên Misa (tuỳ tuần) | Không |
 | 👩‍💼 **FIN** | Một lần: điền file ghép khách + bảng job nợ cũ, bấm `2_Kiem_tra_ghep_khach.bat` (~30 phút) | Không |
 | 👩‍💼 **FIN** | Giữ **file credit term** (`SAMPLE_credit_term_khach.xlsx`): điền Thời hạn, Hạn mức nợ cho khách tool vừa thêm (ô vàng); FIN là người sửa cuối (~5 phút/tuần) | Không |
+| 👩‍💼 **FIN** | **Mỗi tháng một lần**: nhập lãi gộp 3 tháng của quý gần nhất vào sheet **Tham số** của file credit term (~2 phút) | Không |
 | 🧑‍💼 **Sales** | Tích ✓ hợp đồng, dán link hợp đồng, ngày hết hạn, gia hạn trong file credit term (file chung OneDrive); mỗi tuần ghi lý do trễ hạn tuần này **và cập nhật 3 ô đánh giá khách** (Có / Không) ở sheet Receivables | Không |
 | 👩‍💼 **Kế toán trưởng** | Đọc báo cáo, sửa lý do trễ hạn ngay trên file, trình sếp | Không |
 | 🧑‍🔧 **Người cài đặt** | Nháy đúp `1_Khoi_tao_workspace.bat`, một lần duy nhất (~5 phút) | Không |
@@ -181,8 +182,10 @@ Misa), và tên khách trên file Bán hàng không tìm thấy trên Misa (TÍM
 | Sheet | Để làm gì |
 |---|---|
 | **Summary** | Trang bìa: các ô số chính, tuần này so với tuần trước, lịch sử các tuần |
-| **Receivables** | Bảng công nợ theo mẫu chuẩn. Cột **Risk level** ngay cạnh tên khách: Bình thường / Cảnh báo / Rủi ro cao (bảng dưới). Bấm **+** (hoặc nút **2** góc trái) để mở các job chưa thanh toán của khách (lấy từ Misa): hoá đơn nào, **hạn thanh toán ngày nào**, Sales nào, còn bao nhiêu. Sau cột lý do có **3 ô Sales đánh giá** (Có / Không). Cột cuối **Đối chiếu job**: Khớp / ĐỎ / VÀNG / CAM — chỗ FIN cần xem lại |
+| **Receivables** | Bảng công nợ theo mẫu chuẩn. Cột **Risk level** ngay cạnh tên khách: Trắng / Vàng / Cam / Đỏ / Tím (bảng dưới) — chỉ ô này tô màu. Bấm **+** (hoặc nút **2** góc trái) để mở các job chưa thanh toán của khách (lấy từ Misa): hoá đơn nào, **hạn thanh toán ngày nào**, Sales nào, còn bao nhiêu. Sau cột lý do có **3 ô Sales đánh giá** (Có / Không). Cột cuối **Đối chiếu job**: Khớp / ĐỎ / VÀNG / CAM — chỗ FIN cần xem lại |
 | **AR Risk** | Đầu kỳ, tăng, giảm, cuối kỳ; dấu hiệu S1–S7 (S7 = lỡ hẹn: đã qua ngày Sales hẹn mà chưa thu); nhóm rủi ro N0–N4 và việc cần làm của kế toán trưởng (N3: chỉ là câu nhắc, FIN tự quyết ngưng dịch vụ). Bên phải: **tiêu chí FIN** — số ngày quá hạn lớn nhất, nhóm khách, mức độ, căn cứ, hình thức thanh toán đề xuất, phương án xử lý, điểm và hạng A–D |
+| **Đánh giá** | Bảng nâng hạng từng khách như file của Head FIN: dư nợ, quá hạn, billing 6 tháng, hạn mức (hợp đồng / tạm tính), T1–T4, KẾT QUẢ "NÂNG HẠNG RỦI RO", ghi chú. Tool tự điền, không nhập tay |
+| **Tham số** | Số tool đã dùng tuần đó: lãi gộp, X1, X2, X, Y, N… Chỉ để xem — sửa ở sheet Tham số của file credit term |
 | **Contracts** | Cảnh báo từ file credit term: hợp đồng hết hạn mà còn nợ (đỏ), sắp hết hạn ≤30/60/90 ngày, khách nợ chưa có credit term, term vừa đổi so với tuần trước. Hợp đồng hết hạn vẫn tính tuổi nợ theo term cũ. **Cuối sheet: khách mới** — tool đã tự thêm vào file credit term (file đang mở thì ghi "NOT yet", lần chạy sau thêm). Cột cuối **Mở hợp đồng** bấm ra file PDF |
 | **Payable** | Theo mẫu của FIN: vendor còn nợ, chỉ số tổng (Current = Total), không phân tích |
 | **Cash Flow** | Tiền khách trả trong tuần (ngân hàng, tiền mặt, cấn trừ, tỷ giá) và tiền trả vendor |
@@ -203,17 +206,37 @@ Nhóm rủi ro = công thức của chị KTT: N3 khi có 2 dấu hiệu trong S
 Lỡ hẹn (S7) = lý do có ngày hẹn ('15/9', 'tháng 9' = cuối tháng 9) đã qua mà quá hạn không giảm
 ```
 
-**Mức độ rủi ro (tiêu chí FIN, chốt 05/11/2026)** — ô *Risk level* ở Receivables và AR Risk, tô màu kiểu Excel:
+**Mức màu rủi ro (Head FIN, 06/11/2026)** — ô *Risk level* ở Receivables và AR Risk. **Chỉ tô ô này**, không tô cả hàng:
 
-| Mức | Màu | Khi nào |
+| Mức | Màu ô | Mức gốc (theo tuổi nợ cũ nhất còn tiền) |
 |---|---|---|
-| 🟩 **Bình thường** | xanh nhạt, chữ xanh đậm | Chưa quá hạn, hoặc quá hạn 1–30 ngày |
-| 🟨 **Cảnh báo** | vàng nhạt, chữ nâu | Quá hạn 31–60 ngày · hoặc đang quá hạn mà Sales đánh **khách có phản hồi = Không** |
-| 🟥 **Rủi ro cao** | hồng nhạt, chữ đỏ đậm | Quá hạn trên 60 ngày · hoặc **thông tin bất lợi = Có** · hoặc đang quá hạn mà **thất hứa / trễ nhiều lần = Có** |
+| 0 | ⬜ **Trắng** | Chưa quá hạn |
+| 1 | 🟨 **Vàng** | Quá hạn 1–30 ngày |
+| 2 | 🟧 **Cam** | Quá hạn 31–60 ngày |
+| 3 | 🟥 **Đỏ** | Quá hạn 61–90 ngày |
+| 4 | 🟪 **Tím** (chữ trắng) | Quá hạn từ 91 ngày |
+
+```
+Nâng +1 mức  = có ÍT NHẤT MỘT (không cộng dồn), trừ khách ✓ "Không nâng hạng màu" trong file credit term:
+   T1  nợ quá hạn ≥ X      X = số nhỏ hơn giữa X1 = 25% lãi gộp bình quân/tháng của quý gần nhất
+                               và X2 = nợ quá hạn của khách xếp cuối trong top 15% khách đang quá hạn (làm tròn lên)
+                               (chưa nhập lãi gộp → X = X2)
+   T2  dư nợ > hạn mức     hạn mức = cột "Hạn mức nợ" trong file credit term; trống thì TẠM TÍNH
+                               = billing bình quân/tháng 6 tháng gần nhất × hệ số term (30 ngày = 1, 45 ngày = 1,5…) × 1,3
+   T3  ≥ 2 hoá đơn trả trễ hơn hạn quá 15 ngày trong 6 tháng (tool tự đếm từ Chi tiết 131)
+   T4  chưa ✓ hợp đồng · hoặc chưa có credit term · hoặc khách mới (tuần trước chưa nợ) nợ ≥ Y (50 triệu)
+Lên thẳng Đỏ = lý do có "mất liên lạc / hứa không trả / từ chối thanh toán…", hoặc Sales chọn thông tin bất lợi = Có,
+               hoặc đang quá hạn mà thất hứa / trễ nhiều lần = Có. Đã Tím thì giữ Tím.
+Ít nhất Cam  = đang quá hạn mà khách có phản hồi = Không
+```
+
+Ở AR Risk, mỗi khách có đủ các cột để soát: Billing avg, Credit limit (Hợp đồng / Tạm tính), Late invoices, Base level,
+T1–T4, Upgrade +1, Straight to Red, Final level. Đầu sheet ghi X, Y, N của tuần đó và cách tính X.
 
 ```
 Số ngày quá hạn = của hoá đơn quá hạn LÂU NHẤT còn tiền (kể cả hoá đơn chỉ còn vài nghìn đồng)
 Hạn hoá đơn     = ngày hoá đơn + credit term (file credit term)
+Phương án xử lý = bảng của FIN theo nhóm khách × mức: Trắng, Vàng → mức 1 · Cam → mức 2 · Đỏ, Tím → mức 3
 Nhóm khách      = Mới (hoá đơn đầu tiên trong 6 tháng gần nhất, hoặc chưa có hoá đơn) · Thường xuyên · Lâu năm
                   (có hoá đơn từ năm trước) → quyết định câu "Phương án xử lý" và "Hình thức thanh toán đề xuất"
 Điểm A–D        = tham khảo, chấm trên hoá đơn từ 01/01 năm nay + hoá đơn năm trước còn nợ ở đầu năm:
@@ -225,8 +248,7 @@ Nhóm N0–N4      = luật của kế toán trưởng, giữ nguyên, chạy so
 **3 ô Sales đánh giá** (sheet Receivables, chọn trong danh sách Có / Không): *Adverse info?* (khách có thông tin
 bất lợi), *Customer responds?* (khách có phản hồi khi nhắc nợ), *Broken promises / often late?* (khách thất hứa hoặc
 trễ hạn nhiều lần). Mặc định Không · Có · Không. **Tuần mới tool mang sang giá trị tuần trước**, Sales chỉ sửa ô nào
-thay đổi. Sửa xong lưu file là mức độ đổi ngay (ô là công thức). Chưa làm (chờ Client Master, phiếu WR-14): tiêu chí
-dư nợ lớn, vượt hạn mức, lãi gộp.
+thay đổi. Sửa xong lưu file là mức màu đổi ngay (ô là công thức).
 
 **Lý do trễ hạn (PA1, 27/10):** mỗi tuần mới cột *Reason for late payment* để **trống** cho Sales ghi lý do tuần
 này; cột *Reason last week (read only)* (nền xám) hiện lý do tuần trước. Tool không tự viết chữ "[TỰ ĐỘNG]" nữa.
@@ -240,6 +262,9 @@ Cuối sheet Summary có bảng **Sales chưa giải trình** (khách quá hạn
 > 2. **Cột mới tự có.** Khi người bảo trì cập nhật tool, file tự được thêm cột ở lần chạy sau. Không chạy lệnh gì.
 > 3. **Đóng file khi tool chạy** (khoảng giờ thả 6 file). File đang mở thì tool không ghi, chờ lần sau — báo cáo vẫn ra
 >    bình thường, sheet Review ghi rõ.
+> 4. **Mỗi tháng: sheet "Tham số"** — nhập lãi gộp 3 tháng của quý gần nhất (từ P&L) vào 3 ô vàng. Các ô khác (25%, top
+>    15%, Y, 1,3, 2 hoá đơn, 15 ngày, 6 tháng) là số Head FIN đã chốt, chỉ sửa khi Head FIN đổi. Bảng **hệ số term**
+>    bên dưới: gặp kiểu term mới thì thêm một dòng (term ghi đúng chữ như cột Thời hạn, hệ số = số tháng).
 >
 > Tool **không bao giờ sửa** ô chị hay Sales đã điền. Mỗi lần ghi, bản cũ được cất trong `_tool/luu-tru` — cần lấy
 > lại thì mở thư mục đó, chọn file theo ngày giờ.
@@ -259,7 +284,8 @@ hạn từng hoá đơn và báo hợp đồng sắp hết hạn.
 | Số hợp đồng, Loại hợp đồng | Sales | Chọn trong danh sách hoặc gõ |
 | **Link hợp đồng** | Sales | Dán link file hợp đồng (SharePoint / OneDrive) |
 | **Thời hạn** | Sales điền, **FIN xác nhận** | Cột tool dùng để tính quá hạn — cách ghi ở bảng dưới |
-| **Hạn mức nợ (VND)** | FIN | Số tiền tối đa khách được nợ. Chưa dùng để xếp mức (chờ Client Master, WR-14) |
+| **Hạn mức nợ (VND)** | FIN | Số tiền tối đa khách được nợ (hợp đồng). Dư nợ vượt → T2. Trống thì tool tạm tính (xem trên) |
+| **Không nâng hạng màu** | FIN | ✓ nếu khách tốt (giữ được hàng, đi hàng đều, hồ sơ tốt): không nâng màu theo T1–T4 |
 | Ngày hiệu lực, Ngày hết hạn | Sales | Gõ ngày dạng `dd/mm/yyyy` |
 | Ngày gia hạn | Sales | Ngày hợp đồng được gia hạn. **Tới ngày đó** file mới cộng 12 tháng ra hạn mới; chưa tới thì hạn vẫn là Ngày hết hạn |
 | Cột nền xám | — | Tự tính (STT, hạn đang áp dụng, còn lại bao nhiêu ngày, trạng thái). **Đừng gõ đè** |
@@ -293,8 +319,6 @@ hạn từng hoá đơn và báo hợp đồng sắp hết hạn.
 - *Đổi thời hạn thanh toán:* sửa cột Thời hạn. Tuần sau sheet Contracts báo "Credit term vừa đổi" để FIN
   soát lại với hợp đồng.
 - *Hợp đồng hết hạn chưa gia hạn:* tool **vẫn tính theo thời hạn cũ**, chỉ cảnh báo.
-
-Cột **Không nâng hạng màu** (bản 27/10) không còn dùng: để nguyên hay xoá cột đều được.
 
 **Không được:** đổi chữ ở dòng tiêu đề (dòng 6), nhất là hai cột **Mã kh** và **Thời hạn**. Chèn thêm cột
 thì được (tool giữ cột đó khi ghi lại file). Màu ô, chú thích tự tô tay có thể mất khi tool ghi lại — bản cũ vẫn có
@@ -342,7 +366,9 @@ python runner.py --nhan-lai "OPTIMALOG LLC"
 | 📄 Review ghi *"Không thấy file credit term chung"* | OneDrive chưa đồng bộ file, hoặc file bị đổi tên/chuyển chỗ | Mở OneDrive cho đồng bộ; `python runner.py --xem-cau-hinh` để xem tool đang tìm ở đâu |
 | 📋 Contracts báo *"Chưa có credit term"* / *"Chưa có trong file credit term"* với khách đã điền | Mã kh trong file credit term khác mã trên Misa | Sửa Mã kh cho đúng mã Misa |
 | ⬜ Ô *Risk level* ở Receivables trống | File mở bằng trình xem không tính công thức (VD xem trước trên OneDrive web) | Mở bằng Excel; hoặc xem cột Risk level ở AR Risk / dashboard |
-| 🟥 Khách chưa quá hạn mà vẫn *Rủi ro cao* | Ô Sales *Adverse info?* đang là **Có** (mang sang từ tuần trước) | Sales chọn lại **Không** nếu không còn thông tin bất lợi |
+| 🟨 Gần như khách nào cũng bị +1 mức | Nhiều khách chưa ✓ hợp đồng (T4), chưa có Hạn mức nợ nên T2 dùng hạn mức tạm tính | Sales tích ✓ cho khách đã ký; FIN điền Hạn mức nợ theo hợp đồng; khách tốt thì ✓ Không nâng hạng màu |
+| 📄 Đầu AR Risk ghi *"CHƯA NHẬP lãi gộp"* | Sheet Tham số trống lãi gộp | FIN nhập lãi gộp 3 tháng; tuần đó X = X2 |
+| 🟥 Khách chưa quá hạn mà vẫn *Đỏ* | Ô Sales *Adverse info?* đang là **Có** (mang sang từ tuần trước) | Sales chọn lại **Không** nếu không còn thông tin bất lợi |
 | 📄 Review ghi *"Chưa nâng … lên mẫu mới: file đang mở"* | File credit term đang mở lúc tool chạy | Đóng file; lần chạy sau tool tự thêm cột (hoặc chạy lại tuần đó) |
 | 📄 Contracts ghi *"NOT yet in the credit term file … đang mở"* | Lúc tool chạy, file credit term đang mở trong Excel | Đóng file; lần chạy sau tool thêm (hoặc chạy lại tuần đó) |
 | 👤 Job ghi *"Không thấy job trên SMS"* | Job có trên Misa nhưng không có trong file SMS AR-AP | Tra mã job trên SMS: SMS ghi đã thu (lệch Misa), job nằm dưới tên khách khác (sửa file ghép khách), hoặc job làm ngoài SMS |
@@ -370,6 +396,18 @@ python dashboard/build.py              :: sửa dashboard/src thì dựng lại 
 ```
 
 📐 Kiến trúc: `handoff/MAP.md` · Luật: `handoff/RULES.md` (sinh từ `handoff/handoff-standard-v2.0.md`) · Hiện trạng: `handoff/STATE.md` — đọc trước khi sửa
+
+### 🆕 v0.9 (06/11/2026) — WR-15, 5 mức màu của Head FIN
+
+- **Ô Risk level 5 màu** Trắng · Vàng · Cam · Đỏ · Tím theo file tiêu chí nâng hạng v3 của Head FIN; **chỉ tô ô**, không
+  tô cả hàng.
+- **+1 mức theo T1–T4**: X từ lãi gộp + top 15%, hạn mức hợp đồng hoặc tạm tính từ billing 6 tháng, tool tự đếm hoá đơn
+  trả trễ, chưa có hợp đồng / term / khách mới ≥ Y. Lên thẳng Đỏ theo lý do và 3 ô Sales.
+- **Báo cáo tuần thêm 2 sheet "Đánh giá" và "Tham số"** như file của Head FIN, tool tự điền.
+- Dashboard: biểu đồ cột hiện đủ tên khách / vendor (tên dài thì nằm trên thanh), chụp màn hình rõ tên.
+- **Sheet "Tham số" trong file credit term** (tool tự thêm): lãi gộp FIN nhập mỗi tháng, các tỷ lệ, bảng hệ số term.
+- Cột **Không nâng hạng màu** quay lại file credit term. Giữ 3 ô Sales, nhóm khách, phương án xử lý, điểm A–D (WR-13).
+- Đổi tên repo thành `weekly-debtor`; thêm `3_Sua_lich_chay.bat` để trỏ lịch chạy về thư mục mới.
 
 ### 🆕 v0.8 (05/11/2026) — WR-13, tiêu chí FIN 3 mức
 

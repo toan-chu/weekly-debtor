@@ -165,6 +165,43 @@ class KhachChiTiet:
         ngay = [(b.ngay_hd or b.ngay_ht) for b in self.but_toan if b.no > 0 and _so_hd(b.so_hd) is not None]
         return min(ngay) if ngay else None
 
+    def hoa_don_tra_tre(self, den: dt.date, han_cua, da_tt=None, so_ngay: int = 15,
+                        so_thang: int = 6) -> List[Tuple[str, dt.date, dt.date, int]]:
+        """WR-11 (CEO), dùng lại ở WR-15 (T3 của Head FIN): hoá đơn đã TẤT TOÁN trong `so_thang` tháng tới `den` mà ngày tất toán trễ hơn hạn
+        quá `so_ngay` ngày. han_cua(ngày HĐ) → ngày đến hạn. Ngày tất toán = ngày có phiếu thu đầu tiên mà
+        sau đó hoá đơn hết nợ, theo đúng cách tool phân bổ tiền thu (hoa_don_con_no). Hoá đơn còn nợ không
+        tính ở đây (đã nằm trong tuổi nợ). Trả [(số HĐ, ngày HĐ, ngày tất toán, số ngày trễ)]."""
+        tu = den - dt.timedelta(days=round(so_thang * 30.5))
+
+        def mo(ngay):          # khoá hoá đơn (số HĐ thật) còn nợ tại `ngay`
+            con, _ = self.hoa_don_con_no(ngay, da_tt)
+            return {(n, s) for n, s, _t in con if _so_hd(s) is not None}
+
+        def co(ngay):          # khoá hoá đơn đã phát sinh tới `ngay`
+            return {((b.ngay_hd or b.ngay_ht), b.so_hd) for b in self.but_toan
+                    if b.ngay_ht <= ngay and b.no > 0 and _so_hd(b.so_hd) is not None}
+
+        ngay_thu = sorted({b.ngay_ht for b in self.but_toan
+                           if tu < b.ngay_ht <= den and (b.co > 0 or b.no < 0)})
+        ra: List[Tuple[str, dt.date, dt.date, int]] = []
+        truoc_mo, truoc_co = mo(tu), co(tu)
+        for d in ngay_thu:
+            nay_mo, nay_co = mo(d), co(d)
+            for k in sorted((truoc_mo | (nay_co - truoc_co)) - nay_mo):
+                tre = (d - han_cua(k[0])).days
+                if tre > so_ngay:
+                    ra.append((k[1], k[0], d, tre))
+            truoc_mo, truoc_co = nay_mo, nay_co
+        return ra
+
+    def billing_binh_quan(self, den: dt.date, so_thang: int = 6) -> float:
+        """WR-15 (T2 Head FIN): giá trị hoá đơn bình quân / tháng trong `so_thang` tháng tới `den` (bút toán Nợ có số
+        hoá đơn, theo ngày hạch toán). Dùng tạm tính hạn mức khi file credit term chưa có Hạn mức nợ."""
+        from .danhgia import _cong_thang
+        tu = _cong_thang(den, -so_thang)
+        tong = sum(b.no for b in self.but_toan if tu < b.ngay_ht <= den and b.no > 0 and _so_hd(b.so_hd) is not None)
+        return round(tong / so_thang, 2) if so_thang else 0.0
+
     def thong_ke_cham_diem(self, den: dt.date, da_tt=None) -> Dict[str, float]:
         """WR-13 (điểm A–D của FIN, tham khảo): xét các hoá đơn phát sinh từ đầu năm + hoá đơn năm trước còn nợ ở đầu năm
         (FIN chốt 05/11, cùng phạm vi file 'theo hoá đơn' FIN dùng). Trả: so_hd (số hoá đơn xét), so_tra_du (đã thu đủ),

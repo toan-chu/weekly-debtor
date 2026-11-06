@@ -64,8 +64,8 @@ def test_nang_cap_giu_cot_tu_chen_va_khong_tu_tich(tmp_path):
     assert w.cell(kh.DONG_DAU, i).value == "khách quen", "cột người dùng tự chèn vẫn còn"
     j = tieu.index("Đã có hợp đồng") + 1
     assert w.cell(kh.DONG_DAU, j).value is None, "có Số hợp đồng cũng không tự tích ✓"
-    assert "Hạn mức nợ (VND)" in tieu and "Link hợp đồng" in tieu
-    assert "Không nâng hạng màu" not in tieu, "WR-13: bỏ cột này (FIN 05/11: không cần)"
+    assert "Hạn mức nợ (VND)" in tieu and "Link hợp đồng" in tieu and "Không nâng hạng màu" in tieu
+    assert kh.SHEET_THAM_SO in openpyxl.load_workbook(moi).sheetnames, "WR-15: thêm sheet Tham số"
 
 
 # --- chạy thật từ input (PA1, khách mới, công thức) ----------------------

@@ -22,6 +22,8 @@ SHEET_PAYABLE = "Payable"
 SHEET_CASH = "Cash Flow"
 SHEET_METHOD = "Methodology"
 SHEET_INVOICES = "Invoices"
+SHEET_DANH_GIA = "Đánh giá"    # WR-15: bảng nâng hạng từng khách như file v3 của Head FIN
+SHEET_THAM_SO = "Tham số"      # WR-15: bản chụp tham số tuần đó (sửa ở file credit term)
 SHEET_CONTRACT = "Contracts"   # WR-08: cảnh báo hợp đồng / credit term (Client Master)
 TEN_BAO_CAO_TRA = "Creditors Report"
 TEN_BANG_TRA = "Accounts payable"
@@ -67,9 +69,10 @@ COT_LY_DO_NAY = c("Reason for late payment")
 COT_DANH_GIA = [c("Adverse info? (Sales)"), c("Customer responds? (Sales)"), c("Broken promises / often late? (Sales)")]
 # giá trị mặc định khi chưa ai chọn (như file FIN): không có thông tin bất lợi · khách có phản hồi · không thất hứa
 DANH_GIA_MAC_DINH = ("Không", "Có", "Không")
-# WR-13: 3 mức rủi ro theo tiêu chí FIN — màu kiểu Excel Good / Neutral / Bad (nền nhạt, chữ đậm), chỉ tô ô
-MUC_FIN = ("Bình thường", "Cảnh báo", "Rủi ro cao")
-MAU_MUC_FIN = {"Bình thường": ("C6EFCE", "006100"), "Cảnh báo": ("FFEB9C", "9C5700"), "Rủi ro cao": ("FFC7CE", "9C0006")}
+# WR-15 (Head FIN, file W43 tiêu chí nâng hạng v3, 06/11): 5 mức màu 0–4, CHỈ tô ô Risk level (user: tô cả hàng đau mắt)
+MUC_FIN = ("Trắng", "Vàng", "Cam", "Đỏ", "Tím")
+MAU_MUC_FIN = {"Trắng": ("FFFFFF", "000000"), "Vàng": ("FFEB9C", "000000"), "Cam": ("F8CBAD", "000000"),
+               "Đỏ": ("FF7C80", "000000"), "Tím": ("7030A0", "FFFFFF")}
 
 # v0.5 (WR-06): cột thêm khi có file Bán hàng — dư nợ Misa so với tổng job chưa thanh toán
 COT_DOI_CHIEU = ("Đối chiếu job (FIN)", 46)

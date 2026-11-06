@@ -93,6 +93,7 @@ chưa có trong Client Master, cột C–F, để FIN dán) (`ghifull.ghi_contra
 (hd_het_han, hd_sap_het_30, khach_chua_term, term_doi, khach_chua_han_hd); dashboard đọc sheet Contracts. File Client Master ngoài `sample/`: `caidat.CauHinh.client_master` →
 `ghep.dat_file_master` (runner/kiemtra đặt trước khi chạy); `_cac_bang_term` chỉ đọc file đó khi có.
 
+WR-15 (06/11): 5 mức màu Head FIN — `danhgia.muc_goc5/nguong_x/muc_cuoi5`, `tindung.danh_gia_mau5` (chạy SAU vòng lặp vì X cần mọi khách), `chitiet.hoa_don_tra_tre/billing_binh_quan`; tham số đọc từ sheet "Tham số" của file credit term (`khachhang.doc_tham_so`), tool tự thêm sheet và giữ số FIN khi ghi lại file.
 WR-13 (05/11): luật FIN ở `wr/danhgia.py` (mức theo ngày, nâng mức theo 3 ô Sales, nhóm khách, phương án, điểm A–D);
 `tindung.danh_gia_fin` gắn vào từng `DongRuiRo`; `chitiet.thong_ke_cham_diem` cho điểm; 3 ô Sales lưu trong sổ ghi
 (`HoSoKhach.danh_gia`), tuần mới lấy tuần trước. Ba chỗ cùng một luật: `danhgia.py` · `ghifull.cong_thuc_fin` (Excel) ·

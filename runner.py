@@ -365,13 +365,22 @@ def chay_full(
             ghi_log(f"  {cau}")
             canh_bao.append(cau)
     master = khachhang.doc_master(thu_muc_mau, ngay_chot)
+    tham_so = khachhang.doc_tham_so(thu_muc_mau)          # WR-15: (tham số, bảng hệ số term, có sheet chưa)
     co_cot_hd = any(m.get("co_hd") is not None for m in master.values())
     if master and not co_cot_hd:
         canh_bao.append("File credit term chưa có cột 'Đã có hợp đồng' (mẫu cũ): chưa đếm được khách chưa có hợp đồng. "
                         "Chạy tools/nang_cap_credit_term.py một lần.")
     # WR-13: hạn mức nợ chưa dùng để xếp mức (tiêu chí TC2 chờ Client Master, WR-14) → không cảnh báo nữa
     kq = tindung.tinh_full(th, ct, so, dong_sms, bang, pt, ngay_chot, job_no_cu=job_no_cu, job_misa=job_misa,
-                           credit_terms=credit_terms, ma_no_cu=ghep.ma_job_no_cu(thu_muc_mau), master=master)
+                           credit_terms=credit_terms, ma_no_cu=ghep.ma_job_no_cu(thu_muc_mau), master=master,
+                           tham_so=tham_so[:2])
+    kq.co_tham_so = tham_so[2]
+    if not tham_so[2]:
+        canh_bao.append("File credit term chưa có sheet 'Tham số' (lãi gộp, Y…): tạm dùng tham số mặc định của Head FIN. "
+                        "Lần chạy sau tool tự thêm sheet (file phải đang đóng).")
+    elif not any(isinstance(v, (int, float)) and v > 0 for v in kq.tham_so.get("lai_gop") or []):
+        canh_bao.append("Sheet 'Tham số' của file credit term chưa có lãi gộp: X tạm = X2 (nợ quá hạn khách cuối top "
+                        "15%). FIN nhập lãi gộp 3 tháng của quý gần nhất.")
     kq.master = master
     term_truoc = {str(m).upper(): hs.credit_term for m, hs in (so.trang_truoc(ngay_chot) or {}).items()
                   if getattr(hs, "credit_term", "")}
@@ -410,8 +419,9 @@ def chay_full(
         "khach_chua_hd": (sum(1 for r in kq.rui_ro if r.co_hd is False) if co_cot_hd else None),
         "khach_chua_master": dem(lambda x: x == khachhang.LOAI_CHUA_MASTER),
         "khach_chua_han_muc": sum(1 for r in kq.rui_ro if not r.han_muc),
-        **{f"muc_{i}": sum(1 for r in kq.rui_ro if r.muc_fin == i) for i in (1, 2, 3)},
-        "no_rui_ro_cao": round(sum(r.cuoi_ky for r in kq.rui_ro if r.muc_fin == 3), 2),
+        **{f"muc_{i}": sum(1 for r in kq.rui_ro if r.muc5 == i) for i in range(5)},
+        "no_rui_ro_cao": round(sum(r.cuoi_ky for r in kq.rui_ro if r.muc5 >= 3), 2),
+        "nguong_x": kq.x,
         "hang_d": sum(1 for r in kq.rui_ro if r.hang == "D"),
         "sales_chua_giai_trinh": len({r.salesman or "(chưa có Sales)" for r in kq.rui_ro
                                       if r.qua_han > 0.5 and r.s[3]}),
@@ -469,6 +479,7 @@ def chay_full(
     def them_sheet(wb):
         ghifull.ghi_summary(wb, kq, ngay_chot, lich_su)
         ghifull.ghi_risk(wb, kq, ngay_chot)
+        ghifull.ghi_danh_gia(wb, kq, ngay_chot)
         ghifull.ghi_contracts(wb, canh_bao_hd, ngay_chot, kq.them_khach)
         ghifull.ghi_payable(wb, kq, ngay_chot, ky)
         ghifull.ghi_cash(wb, kq, ngay_chot, ky)

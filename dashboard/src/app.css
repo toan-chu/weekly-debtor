@@ -195,6 +195,7 @@ body{background:radial-gradient(1200px 600px at 10% -10%,#efe7fa 0,transparent 6
 [hidden]{display:none!important}
 body{min-height:100vh}
 
-/* WR-13: mức độ FIN — kiểu Excel Good / Neutral / Bad */
-.muc{display:inline-block;padding:1px 8px;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap}
-.muc-1{background:#C6EFCE;color:#006100}.muc-2{background:#FFEB9C;color:#9C5700}.muc-3{background:#FFC7CE;color:#9C0006}
+/* WR-15: 5 mức màu Head FIN — cùng wr/thuonghieu.MAU_MUC_FIN */
+.muc{display:inline-block;padding:1px 8px;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid #d9d9d9}
+.muc-0{background:#FFFFFF;color:#000}.muc-1{background:#FFEB9C;color:#000}.muc-2{background:#F8CBAD;color:#000}
+.muc-3{background:#FF7C80;color:#000}.muc-4{background:#7030A0;color:#fff}

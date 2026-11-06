@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 """WR-13 (FIN chốt 05/11): 3 mức rủi ro theo tiêu chí FIN (Bình thường / Cảnh báo / Rủi ro cao), ô "Risk level" cạnh
 tên khách ở Receivables, 3 ô Sales đánh giá (giữ giá trị tuần trước), nhóm khách, phương án xử lý, điểm A–D,
-hạn từng job trong nhãn dòng con. Dữ liệu GIẢ."""
+hạn từng job trong nhãn dòng con. Dữ liệu GIẢ.
+WR-15 (06/11): mức màu đổi sang 5 mức Head FIN — phép thử báo cáo thật ở tests/test_wr15.py."""
 import datetime as dt
-import shutil
-import subprocess
 import sys
-import time
 from pathlib import Path
 
 import openpyxl
@@ -96,54 +94,6 @@ def _sua(f, ma, cot, gia_tri):
     wb.save(f)
 
 
-def test_o_muc_do_canh_ten_khach_va_3_o_sales(ws):
-    _tha_4_file(ws, 40)
-    assert runner.quet_thu_muc(ws) == 1
-    wb = openpyxl.load_workbook(next(ws.ra.glob("2026_W40_*.xlsx")))
-    rec = wb[th.SHEET_BANG]
-    assert rec.cell(5, th.C_TEN).value == "Customer's Name" and rec.cell(5, th.C_MUC).value == "Risk level"
-    ka = _hang(rec, "KA")
-    assert str(rec.cell(ka, th.C_MUC).value).startswith("=IFERROR(INDEX('AR Risk'!"), "ô mức độ lấy từ AR Risk"
-    assert [rec.cell(ka, c).value for c in th.COT_DANH_GIA] == list(th.DANH_GIA_MAC_DINH)
-    cf = [(str(c.sqref), [r.formula[0] for r in c.rules]) for c in rec.conditional_formatting]
-    assert any(s.startswith("D6") and len(f) == 3 for s, f in cf), "tô ô mức độ theo 3 màu Good/Neutral/Bad"
-    dv = {str(d.sqref): d.formula1 for d in rec.data_validations.dataValidation}
-    assert any(v == '"Có,Không"' and "Q6" in k for k, v in dv.items()), "3 ô Sales là danh sách Có/Không"
-    # KA: HĐ 01/08, term mặc định 30 ngày → quá hạn 32 ngày tại 02/10 → Cảnh báo; B/C/K Bình thường
-    risk = wb[th.SHEET_RISK]
-    h = next(r for r in range(1, 8) if risk.cell(r, 1).value == "No.")
-    cot = {risk.cell(h, c).value: c for c in range(1, risk.max_column + 1)}
-    rk = next(r for r in range(h + 1, risk.max_row + 1) if risk.cell(r, 2).value == "KA")
-    assert risk.cell(rk, cot["Max days overdue"]).value == 32
-    sm = _sm(wb)
-    assert (sm["muc_1"], sm["muc_2"], sm["muc_3"]) == (3, 1, 0)
-
-
-def test_o_sales_giu_tuan_truoc_va_chay_lai_giu_tuan_nay(ws):
-    _tha_4_file(ws, 40)
-    assert runner.quet_thu_muc(ws) == 1
-    w40 = next(ws.ra.glob("2026_W40_*.xlsx"))
-    time.sleep(1.1)
-    _sua(w40, "KB", th.COT_DANH_GIA[0], "Có")                # Sales: KB có thông tin bất lợi
-    _tha_4_file(ws, 41)
-    assert runner.quet_thu_muc(ws) == 1
-    w41 = next(ws.ra.glob("2026_W41_*.xlsx"))
-    wb = openpyxl.load_workbook(w41)
-    rec = wb[th.SHEET_BANG]
-    assert rec.cell(_hang(rec, "KB"), th.COT_DANH_GIA[0]).value == "Có", "tuần mới giữ ô Sales của tuần trước"
-    assert _sm(wb)["muc_3"] == 1, "KB lên Rủi ro cao vì thông tin bất lợi"
-    # Sales sửa lại ở báo cáo W41 rồi chạy lại cùng tuần → lấy ô của tuần này
-    time.sleep(1.1)
-    _sua(w41, "KB", th.COT_DANH_GIA[0], "Không")
-    for f in ws.vao.glob("[[]DONE[]] *"):
-        if "2." in f.name or "41" in f.name:
-            f.rename(f.with_name(f.name.replace("[DONE] ", "")))
-    assert runner.quet_thu_muc(ws) == 1
-    lai = openpyxl.load_workbook(next(ws.ra.glob("2026_W41_*chay lai*.xlsx")))
-    assert lai[th.SHEET_BANG].cell(_hang(lai[th.SHEET_BANG], "KB"), th.COT_DANH_GIA[0]).value == "Không"
-    assert _sm(lai)["muc_3"] == 0
-
-
 def test_dong_job_co_han_thanh_toan(ws, monkeypatch):
     from test_wr6 import BH, SCT, tao_ban_hang, tao_so_chi_tiet
     from wr import tindung
@@ -156,23 +106,3 @@ def test_dong_job_co_han_thanh_toan(ws, monkeypatch):
     rec = openpyxl.load_workbook(next(ws.ra.glob("2026_W40_*.xlsx")))[th.SHEET_BANG]
     nhan = rec.cell(_hang(rec, "KA") + 1, th.C_TEN).value
     assert "· hạn 31/08/2026" in nhan, f"hạn = ngày hoá đơn 01/08 + 30 ngày: {nhan}"
-
-
-@pytest.mark.skipif(not shutil.which("soffice"), reason="Cần LibreOffice để tính lại công thức")
-def test_cong_thuc_muc_do_trong_excel_khop_python(ws, tmp_path):
-    _tha_4_file(ws, 40)
-    assert runner.quet_thu_muc(ws) == 1
-    f = next(ws.ra.glob("2026_W40_*.xlsx"))
-    time.sleep(1.1)
-    _sua(f, "KC", th.COT_DANH_GIA[0], "Có")          # sửa tay trong Excel → công thức phải đổi theo
-    out = tmp_path / "lo"
-    subprocess.run(["soffice", "--headless", "--calc", "--convert-to", "xlsx", "--outdir", str(out), str(f)],
-                   check=True, capture_output=True, timeout=120)
-    wb = openpyxl.load_workbook(out / f.name, data_only=True)
-    rec = wb[th.SHEET_BANG]
-    muc = {rec.cell(r, 2).value: rec.cell(r, th.C_MUC).value for r in range(6, rec.max_row)
-           if rec.cell(r, 2).value and rec.cell(r, 2).value != "TOTAL"}
-    assert muc == {"KA": "Cảnh báo", "KB": "Bình thường", "KC": "Rủi ro cao", "KK": "Bình thường"}, muc
-    risk = wb[th.SHEET_RISK]
-    loi = [o.coordinate for r in risk.iter_rows() for o in r if isinstance(o.value, str) and o.value.startswith("#")]
-    assert not loi, f"công thức lỗi: {loi[:5]}"

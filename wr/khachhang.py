@@ -24,6 +24,7 @@ SHEET_MASTER = "Credit term"
 SHEET_MASTER_CU = ("Client Master",)
 TEN_FILE_MAC_DINH = "SAMPLE_credit_term_khach.xlsx"
 SHEET_HUONG_DAN = "Hướng dẫn"
+SHEET_THAM_SO = "Tham số"      # WR-15: tham số tiêu chí nâng hạng của Head FIN — FIN sửa tay mỗi tháng
 DONG_NHOM = 5          # dải tên nhóm cột
 DONG_TIEU_DE = 6       # tiêu đề cột (tool đọc dòng này)
 DONG_DAU = 7
@@ -49,6 +50,7 @@ COT = [
     ("loai_hd",  "Loại hợp đồng",         "Hợp đồng", 18, "ten"),
     ("term",     "Thời hạn",              "Hợp đồng", 30, "ten"),
     ("han_muc",  "Hạn mức nợ (VND)",      "Hợp đồng", 16, "so"),     # WR-11: credit term = số ngày + hạn mức
+    ("khong_nang","Không nâng hạng màu",  "Hợp đồng", 11, "tick"),   # WR-15 (Head FIN): giữ hàng, đi hàng đều, hồ sơ tốt
     ("hieu_luc", "Ngày hiệu lực",         "Hợp đồng", 13, "ngay"),
     ("het_han",  "Ngày hết hạn",          "Hợp đồng", 13, "ngay"),
     ("gia_han",  "Ngày gia hạn",          "Gia hạn", 13, "ngay"),
@@ -130,7 +132,9 @@ def _tieu_de(ws) -> None:
            "term": "Tool đọc cột này mỗi tuần. Viết: 'thanh toán ngay', '30 days', "
                    "'14 ngày của tháng tiếp theo'… — xem sheet Hướng dẫn.",
            "sales": "Tên đầy đủ như trên SMS. Khách nhiều Sales: ghi cách nhau dấu phẩy.",
-           "han_muc": "Hạn mức nợ (VND) theo hợp đồng. Chưa dùng để xếp mức rủi ro (chờ Client Master, WR-14).",
+           "han_muc": "Hạn mức nợ (VND) theo hợp đồng. Dư nợ vượt hạn mức → màu lên 1 mức (T2). Trống thì tool tạm tính "
+                      "= billing bình quân 6 tháng × hệ số term × 1,3 (sheet Tham số).",
+           "khong_nang": "✓ = khách tốt (giữ được hàng, đi hàng đều, hồ sơ tốt): báo cáo không nâng màu theo T1–T4.",
            "link_hd": "Dán link file hợp đồng (SharePoint / OneDrive).",
            "het_moi": "Tự tính: ngày gia hạn + 12 tháng.",
            "trang_thai": "Tự tính từ Hạn đang áp dụng (≤30 / ≤60 / ≤90 ngày)."}
@@ -162,7 +166,7 @@ def _o_du_lieu(o, loai: str, co_gia_tri: bool) -> None:
 
 
 def ghi_master(dich: Path, dong: Sequence[Dict], sales: Sequence[str], ghi_chu: str = "",
-               cot_them: Sequence[str] = ()) -> Path:
+               cot_them: Sequence[str] = (), tham_so=None) -> Path:
     """dong: [{khoá cột: giá trị}] — khoá như COT; cột công thức tự điền. sales: danh sách thả xuống.
     cot_them: tiêu đề các cột người dùng tự chèn ở file cũ — ghi thêm sau cột cuối, giá trị lấy từ
     dong[i]["+<tiêu đề>"] (tools/nang_cap_client_master.py), để nâng cấp mẫu không làm mất cột của ai."""
@@ -208,6 +212,12 @@ def ghi_master(dich: Path, dong: Sequence[Dict], sales: Sequence[str], ghi_chu: 
                         showInputMessage=True)
     dv.add(f"{c['co_hd']}{DONG_DAU}:{c['co_hd']}{cuoi}")
     ws.add_data_validation(dv)
+    dv = DataValidation(type="list", formula1=f'"{DAU_TICH}"', allow_blank=True, showErrorMessage=False,
+                        promptTitle="Không nâng hạng màu", showInputMessage=True,
+                        prompt="Chọn ✓ nếu khách giữ được hàng, đi hàng đều, hồ sơ tốt: báo cáo không nâng màu "
+                               "theo các tiêu chí T1–T4 (vẫn lên Đỏ nếu mất liên lạc / hứa không trả)")
+    dv.add(f"{c['khong_nang']}{DONG_DAU}:{c['khong_nang']}{cuoi}")
+    ws.add_data_validation(dv)
     dv = DataValidation(type="decimal", operator="greaterThanOrEqual", formula1="0", allow_blank=True,
                         errorTitle="Hạn mức nợ", error="Nhập số tiền VND, VD 500000000")
     dv.add(f"{c['han_muc']}{DONG_DAU}:{c['han_muc']}{cuoi}")
@@ -246,6 +256,7 @@ def ghi_master(dich: Path, dong: Sequence[Dict], sales: Sequence[str], ghi_chu: 
     ws.print_area = f"A1:{get_column_letter(len(COT))}{DONG_DAU + max(len(dong), 1) + 4}"
 
     _huong_dan(wb.create_sheet(SHEET_HUONG_DAN), sales)
+    _ghi_tham_so(wb.create_sheet(SHEET_THAM_SO), *(tham_so or (None, None)))
     wb.save(dich)
     return Path(dich)
 
@@ -280,7 +291,7 @@ def _huong_dan(ws, sales: Sequence[str]) -> None:
                                  "FIN điền); không sửa ô đã có. Trước khi thêm luôn sao lưu file vào _tool/luu-tru.")
     dong(8, "Cột nền xám", "Tự tính (STT, hết hạn sau gia hạn, còn lại, trạng thái) — đừng gõ đè.")
     dong(9, "Tiêu đề dòng 6", "Giữ nguyên chữ. Chèn cột thêm được; đổi tên cột tiêu đề thì tool không đọc được.")
-    dong(10, "Đã có hợp đồng",
+    dong(10, "Đã có hợp đồng · Không nâng hạng màu",
          "Chọn ✓ trong ô (bấm mũi tên). Hạn mức nợ: số tiền VND. Link hợp đồng: dán link file.")
 
     muc(11, "2. Màu trong bảng")
@@ -403,6 +414,7 @@ def doc_master(thu_muc, ngay=None) -> Dict[str, Dict]:
         i_co_hd = cot("đã có hợp đồng")
         i_han_muc = cot("hạn mức nợ (vnd)", "hạn mức nợ", "credit limit", "credit limit (vnd)")
         i_link = cot("link hợp đồng", "contract link")
+        i_khong_nang = cot("không nâng hạng màu", "không nâng hạng")
         g = lambda r, i: r[i] if i is not None and i < len(r) else None
         for r in hang[1:]:
             ma = ghep._o(g(r, i_ma)).upper()
@@ -413,7 +425,7 @@ def doc_master(thu_muc, ngay=None) -> Dict[str, Dict]:
                           het_han=het, gia_han=gh, han_dung=han_ap_dung(het, gh, ngay or _hom_nay()),
                           sales=ghep._o(g(r, i_sales)),
                           co_hd=la_tich(g(r, i_co_hd)) if i_co_hd is not None else None,
-                          han_muc=so_tien(g(r, i_han_muc)), 
+                          han_muc=so_tien(g(r, i_han_muc)), khong_nang=la_tich(g(r, i_khong_nang)),
                           link_hd=ghep._o(g(r, i_link)))
     return ra
 
@@ -564,6 +576,121 @@ def dang_mo(f: Path) -> bool:
     return False
 
 
+# --- WR-15: sheet "Tham số" (Head FIN) ----------------------------------------------------------------------
+THAM_SO_DONG = [   # (khoá, nhãn ở cột A — tool đọc theo nhãn, định dạng, ghi chú)
+    ("quy", "Quý gần nhất", "@", "VD Q3/2026 — chỉ để ghi nhớ số lãi gộp bên dưới là của quý nào"),
+    ("lai_gop_1", "Lãi gộp tháng 1 của quý (VND)", "#,##0", "Lấy từ báo cáo P&L. Đổi quý thì nhập lại cả 3 tháng"),
+    ("lai_gop_2", "Lãi gộp tháng 2 của quý (VND)", "#,##0", ""),
+    ("lai_gop_3", "Lãi gộp tháng 3 của quý (VND)", "#,##0", "Trống cả 3 → X tạm = X2 (báo cáo ghi rõ)"),
+    ("ty_le_lai_gop", "X1: tỷ lệ trên lãi gộp bình quân/tháng", "0%", "X1 = tỷ lệ × lãi gộp bình quân / tháng"),
+    ("top_qua_han", "X2: top khách đang quá hạn", "0%",
+     "X2 = nợ quá hạn của khách xếp cuối trong top này (làm tròn lên). X = số nhỏ hơn giữa X1 và X2"),
+    ("y", "Y: khách mới nợ từ (VND)", "#,##0", "T4. Để trống thì Y = X / 2"),
+    ("he_so_an_toan", "Hệ số an toàn hạn mức tạm tính", "0.0",
+     "T2: khách chưa có Hạn mức nợ → hạn mức tạm tính = billing bình quân 6 tháng × hệ số term × hệ số này"),
+    ("so_hd_tre", "T3: số hoá đơn trả trễ tối thiểu", "0", ""),
+    ("ngay_tre", "T3: trễ hơn hạn quá (ngày)", "0", ""),
+    ("so_thang", "Số tháng xét (T3, billing bình quân)", "0", ""),
+]
+TIEU_DE_BANG_TERM = "Credit term (đúng chữ như cột Thời hạn)"
+
+
+def _ghi_tham_so(ws, ts=None, bang=None) -> None:
+    from . import danhgia as dg
+    ts = {**dg.THAM_SO_MAC_DINH, **(ts or {})}
+    lg = list(ts.get("lai_gop") or []) + [None, None, None]
+    gia = {**ts, "lai_gop_1": lg[0], "lai_gop_2": lg[1], "lai_gop_3": lg[2]}
+    bang = list(bang) if bang else list(dg.HE_SO_TERM_MAC_DINH)
+    ws.sheet_view.showGridLines = False
+    for col, w in (("A", 44), ("B", 20), ("C", 90)):
+        ws.column_dimensions[col].width = w
+    ws["A1"] = th.CONG_TY
+    ws["A1"].font = Font(name=th.PHONG_TIEU_DE, size=12, bold=True, color=th.TIM)
+    ws["A2"] = "Tham số tiêu chí nâng hạng rủi ro (Head FIN) — FIN sửa các ô vàng, mỗi tháng một lần"
+    ws["A2"].font = Font(name=th.PHONG_TIEU_DE, size=11, bold=True)
+    vang = PatternFill("solid", fgColor="FFF2CC")
+
+    def tieu_de(r, *chu):
+        for i, t in enumerate(chu, start=1):
+            o = ws.cell(r, i, t)
+            o.fill = PatternFill("solid", fgColor=th.TIM)
+            o.font = Font(name=th.PHONG_TIEU_DE, size=10, bold=True, color=th.TRANG)
+            o.border = VIEN
+    tieu_de(4, "Tham số", "Giá trị", "Ghi chú")
+    r = 5
+    for k, nhan, dd, ghi in THAM_SO_DONG:
+        ws.cell(r, 1, nhan).border = VIEN
+        o = ws.cell(r, 2, gia.get(k))
+        o.fill, o.border, o.number_format = vang, VIEN, dd
+        ws.cell(r, 3, ghi).font = Font(name=th.PHONG_NOI_DUNG, size=9, italic=True, color="7F7F7F")
+        r += 1
+    r += 1
+    tieu_de(r, TIEU_DE_BANG_TERM, "Hệ số (tháng)", "Cách tính")
+    for i in range(max(len(bang) + 15, 30)):
+        t, hs, ghi = (list(bang[i]) + [None, None, None])[:3] if i < len(bang) else (None, None, None)
+        for j, v in enumerate((t, hs, ghi), start=1):
+            o = ws.cell(r + 1 + i, j, v)
+            o.border = VIEN
+            if j < 3:
+                o.fill = vang
+        ws.cell(r + 1 + i, 2).number_format = "0.00"
+    ws.cell(r + len(bang) + 17, 1, "Term không có trong bảng: tool tự tính = số ngày từ hoá đơn tới hạn / 30. "
+                                   "Chưa có term: không tạm tính được hạn mức (T2 bỏ qua, T4 nâng).").font = \
+        Font(name=th.PHONG_NOI_DUNG, size=9, italic=True, color="7F7F7F")
+
+
+def doc_tham_so_file(f) -> tuple:
+    """(tham số {khoá: giá trị}, bảng hệ số term [(term, hệ số, ghi chú)]) từ sheet 'Tham số'. Không có sheet → (None, None).
+    Ô trống / gõ sai → giá trị mặc định của Head FIN (danhgia.THAM_SO_MAC_DINH); riêng Y trống → None (= X / 2)."""
+    from . import danhgia as dg
+    try:
+        wb = openpyxl.load_workbook(f, data_only=True)
+    except Exception:
+        return None, None
+    if SHEET_THAM_SO not in wb.sheetnames:
+        return None, None
+    ws = wb[SHEET_THAM_SO]
+    nhan = {n: (k, dd) for k, n, dd, _g in THAM_SO_DONG}
+    ts: Dict[str, object] = {}
+    bang, trong_bang, trong = [], False, 0
+    for r in range(1, ws.max_row + 1):
+        a, b, c = (ws.cell(r, i).value for i in (1, 2, 3))
+        a_ = str(a or "").strip()
+        if trong_bang:
+            if not a_:
+                trong += 1
+                if trong > 30:
+                    break
+                continue
+            trong = 0
+            hs = so_tien(b) if not isinstance(b, (int, float)) else b
+            if isinstance(hs, (int, float)):
+                bang.append((a_, float(hs), str(c or "")))
+            continue
+        if a_ == TIEU_DE_BANG_TERM:
+            trong_bang = True
+        elif a_ in nhan:
+            k, dd = nhan[a_]
+            if k == "quy":
+                ts[k] = str(b or "").strip()
+            else:
+                v = b if isinstance(b, (int, float)) else so_tien(b)
+                ts[k] = v if isinstance(v, (int, float)) else None
+    goc = dict(dg.THAM_SO_MAC_DINH)
+    ra = {k: (ts.get(k) if ts.get(k) is not None else goc[k]) for k in goc if k not in ("lai_gop",)}
+    ra["y"] = ts.get("y")                     # trống → None → Y = X / 2
+    ra["lai_gop"] = [ts.get(f"lai_gop_{i}") for i in (1, 2, 3)]
+    return ra, bang
+
+
+def doc_tham_so(thu_muc_mau) -> tuple:
+    """Tham số của file credit term đang dùng; chưa có sheet / file → mặc định của Head FIN, bảng term mặc định."""
+    from . import danhgia as dg
+    f = tim_file_credit_term(thu_muc_mau)
+    ts, bang = doc_tham_so_file(f) if f else (None, None)
+    return (ts or dict(dg.THAM_SO_MAC_DINH)), (bang or list(dg.HE_SO_TERM_MAC_DINH)), (ts is not None)
+
+
 def thieu_mau(f: Path) -> List[str]:
     """Những gì file credit term còn thiếu so với mẫu hiện tại: tên cột thiếu, và 'tên sheet cũ' nếu sheet còn tên
     'Client Master'. Rỗng = file đã đúng mẫu. File không đọc được → rỗng (không đụng vào)."""
@@ -578,6 +705,8 @@ def thieu_mau(f: Path) -> List[str]:
         tieu = {str(v or "").strip() for v in next(ws.iter_rows(min_row=DONG_TIEU_DE, max_row=DONG_TIEU_DE,
                                                                 values_only=True), ())}
         ra = [t for _k, t, *_r in COT if t not in tieu]
+        if SHEET_THAM_SO not in wb.sheetnames:
+            ra.append(f"sheet '{SHEET_THAM_SO}'")
         if ws.title != SHEET_MASTER:
             ra.append(f"tên sheet '{SHEET_MASTER}'")
         return ra
@@ -600,6 +729,7 @@ def them_khach_moi(dich: Path, moi: Sequence[Dict], luu_tru: Path, ngay) -> tupl
         return 0, (f"Chưa thêm {len(moi)} khách mới vào {dich.name}: file đang mở. Đóng file — lần chạy sau tool "
                    "thêm tiếp (hoặc chạy lại tuần này).")
     dong, cot_them, sales = doc_file(dich) if dich.exists() else ([], [], [])
+    tham_so = doc_tham_so_file(dich) if dich.exists() else (None, None)     # giữ nguyên số FIN đã nhập
     co = {str(d.get("ma") or "").strip().upper() for d in dong}
     them = []
     for m in moi:
@@ -616,7 +746,7 @@ def them_khach_moi(dich: Path, moi: Sequence[Dict], luu_tru: Path, ngay) -> tupl
         Path(luu_tru).mkdir(parents=True, exist_ok=True)
         shutil.copy2(dich, Path(luu_tru) / f"{dich.stem}_truoc-khi-tool-ghi_{dt.datetime.now():%Y%m%d-%H%M%S-%f}.xlsx")
     tam = dich.with_name(dich.stem + ".tool-dang-ghi")
-    ghi_master(tam, dong + them, sales, cot_them=cot_them)
+    ghi_master(tam, dong + them, sales, cot_them=cot_them, tham_so=tham_so)
     os.replace(tam, dich)
     cau = []
     if thieu:

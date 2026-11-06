@@ -1,4 +1,4 @@
-# weekly-report
+# weekly-debtor
 
 Công cụ sinh báo cáo công nợ hằng tuần (phải thu, phải trả, dòng tiền, rủi ro) cho Trustana Việt Nam.
 Kế toán thả 6 file (5 file Misa + 1 file SMS AR-AP) vào thư mục `input/` trên OneDrive; một tiến trình

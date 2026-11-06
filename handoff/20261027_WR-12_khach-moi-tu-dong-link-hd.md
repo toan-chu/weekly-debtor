@@ -34,7 +34,7 @@ Kế thừa:
 - WR-08: file credit term là file chung OneDrive; FIN sửa lần cuối.
 
 Kịch bản test (chạy lại W43 trên máy FIN; thay cho kịch bản của WR-11 — user hoặc FIN bấm, khoảng 20 phút):
-1. Đóng mọi file Excel trong workspace. GitHub Desktop → repo weekly-report → Fetch origin → Pull origin.
+1. Đóng mọi file Excel trong workspace. GitHub Desktop → repo weekly-debtor → Fetch origin → Pull origin.
    KHÔNG cần chạy script nâng cấp file credit term.
 2. Lần chạy 1 — khách mới: vào `input\`, bỏ chữ `[DONE] ` ở 6 file `2026_W43_…`. Task Scheduler → Bao cao cong no tuan
    → Run. Chờ 1 phút. Thấy:

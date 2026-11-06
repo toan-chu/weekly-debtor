@@ -94,7 +94,7 @@ Từ tuần 41: chỉ thả 6 file mới vào `input/`.
 ### 🔄 Cập nhật bản mới trên máy FIN (GitHub Desktop)
 
 1. Người bảo trì đẩy code lên GitHub (GitHub Desktop: **Commit** → **Push origin**).
-2. Trên máy FIN: mở **GitHub Desktop** → chọn repo `weekly-report` → **Fetch origin** → **Pull origin**.
+2. Trên máy FIN: mở **GitHub Desktop** → chọn repo `weekly-debtor` → **Fetch origin** → **Pull origin**.
    Cấu hình riêng của máy (`settings.json`) không đi theo git nên giữ nguyên; không cần cài lại.
    Lần chạy kế tiếp tool tự chép dashboard mới vào workspace.
 3. **Không xoá workspace.** Thư mục `_tool` giữ trí nhớ các tuần trước; báo cáo cũ ở thư mục gốc là mốc so
@@ -104,6 +104,17 @@ Từ tuần 41: chỉ thả 6 file mới vào `input/`.
    **đóng file credit term** lúc tool chạy; file đang mở thì tool để lần sau và ghi một dòng ở sheet Review.
 5. Muốn chạy lại một tuần bằng bản mới: vào `input/`, bỏ chữ `[DONE] ` ở 6 file của tuần đó → Task
    Scheduler → **Run**. Tool tạo file `… (chay lai …).xlsx`, không đè báo cáo FIN đã sửa.
+
+### 📂 Đổi tên / chuyển thư mục mã nguồn
+
+Git không mang tên thư mục, Pull không đổi tên giúp. Lịch chạy nền gọi đường dẫn đầy đủ, nên đổi tên là tool ngừng chạy
+cho tới khi làm bước 3:
+
+1. Đóng GitHub Desktop. 2. Đổi tên thư mục (VD `weekly-report` → `weekly-debtor`).
+3. Nháy đúp **`3_Sua_lich_chay.bat`** trong thư mục mới: lịch chạy trỏ về thư mục mới, `settings.json` tự sửa đường dẫn
+   cũ. Không hỏi gì, không đụng workspace OneDrive.
+4. Mở GitHub Desktop → repo báo không thấy → **Locate…** → chọn thư mục mới.
+5. Task Scheduler → *Bao cao cong no tuan* → **Run** → `_tool\runner.log` trong workspace có dòng mới là xong.
 
 ## 📋 Dùng thế nào
 
@@ -341,7 +352,7 @@ python runner.py --nhan-lai "OPTIMALOG LLC"
 ## 🛠️ Dành cho người bảo trì
 
 ```
-weekly-report/            chỉ chứa mã nguồn, không có dữ liệu chạy
+weekly-debtor/            chỉ chứa mã nguồn, không có dữ liệu chạy
 ├── runner.py             điểm chạy, cũng là chỗ nhận mọi lệnh
 ├── wr/                   misa · chitiet · banhang · tindung · ghifull · ghep · khachhang · soghi · tinhtoan · baocao · kiemtra
 ├── tools/                make_template · setup_wizard · nang_cap_credit_term

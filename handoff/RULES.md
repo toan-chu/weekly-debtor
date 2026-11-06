@@ -1,4 +1,4 @@
-# RULES — weekly-report
+# RULES — weekly-debtor
 Sinh từ handoff-standard v2.0 (bản sao: `handoff/handoff-standard-v2.0.md`). Chỉ chứa luật đứng; trần 200 dòng.
 Phần A chép nguyên từ chuẩn; phần B là luật riêng của tool này. Hai phần mâu thuẫn thì phần A thắng.
 
@@ -64,7 +64,7 @@ Sai thì làm lại: <những gì phải làm lại>
 - Ba nhân dạng duy nhất là `user`, `claude`, `codex`; người đặt hướng đi luôn gọi là user, không dùng tên vai nào khác cho cùng một người.
 - Từ và luật của bản cũ còn sót trong repo — như `chairman`, `Chỉ huy`, quyền ký theo vai — là lỗi chuẩn, sửa theo mục 12.
 
-# B. Luật riêng của weekly-report
+# B. Luật riêng của weekly-debtor
 
 ## R.1 Ranh giới với người dùng
 

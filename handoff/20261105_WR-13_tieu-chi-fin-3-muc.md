@@ -28,7 +28,7 @@ Kế thừa:
 - Nguồn tiêu chí: `handoff/docs/Đánh gái khách hàng phải thu và tiêu chí (2) 1.xlsx` (không lên git).
 
 Kịch bản test (chạy lại W44 trên máy FIN — user bấm, khoảng 15 phút):
-1. Đóng mọi file Excel trong workspace. GitHub Desktop → repo weekly-report → Fetch origin → Pull origin.
+1. Đóng mọi file Excel trong workspace. GitHub Desktop → repo weekly-debtor → Fetch origin → Pull origin.
    Không chạy lệnh gì thêm; không xoá workspace.
 2. Vào `input\`, bỏ chữ `[DONE] ` ở 6 file `2026_W44_…`. Task Scheduler → Bao cao cong no tuan → Run. Chờ 1 phút.
 3. Mở báo cáo mới `2026_W44_Credit_Report_24.10-30.10.2026 (chay lai …).xlsx` bằng Excel. Thấy:

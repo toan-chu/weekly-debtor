@@ -1,4 +1,4 @@
-/* Credit Dashboard — đọc file Excel tuần do tool weekly-report sinh ra, vẽ trong trình duyệt.
+/* Credit Dashboard — đọc file Excel tuần do tool weekly-debtor sinh ra, vẽ trong trình duyệt.
    Không tính lại tiền: mọi con số lấy từ file. Chỉ tính lại NHÓM RỦI RO khi kế toán đã sửa
    lý do trễ hạn trong sheet Receivables (cùng luật với sheet AR Risk / Methodology).
    Kiểu Looker Studio: mỗi thẻ chọn được kiểu biểu đồ hoặc bảng; bấm vào một phần biểu đồ

@@ -1,4 +1,4 @@
-# MAP — weekly-report
+# MAP — weekly-debtor
 
 Kiến trúc hiện tại. Mọi thay đổi ở tầng này phải vẽ ở đây TRƯỚC khi đổi mã.
 
@@ -9,7 +9,7 @@ từ ngày hoá đơn thật, phải trả, dòng tiền, nhóm rủi ro, hợp 
 
 ```
 THƯ MỤC MÃ NGUỒN (chỉ có mã)            THƯ MỤC ĐÍCH (người dùng tự trỏ)
-weekly-report/                           Cong-No-Workspace/
+weekly-debtor/                           Cong-No-Workspace/
   1_Khoi_tao_workspace.bat                 *_Credit_Report_*.xlsx   báo cáo tuần, ngay ở gốc;
   2_Kiem_tra_ghep_khach.bat                                         chị KTT sửa thẳng vào đây
   runner.py  wr/  tools/  tests/           input/   mỗi tuần 4 file (xem dưới)

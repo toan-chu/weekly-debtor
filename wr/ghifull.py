@@ -148,6 +148,7 @@ CHI_SO = [
     ("muc_2", "Risk level · Cam (customers)", "so"),
     ("muc_1", "Risk level · Vàng (customers)", "so"),
     ("muc_0", "Risk level · Trắng (customers)", "so"),
+    ("trang_theo_doi", "  of which Trắng ↑ (within term, watch T1–T3)", "so"),
     ("no_rui_ro_cao", "  Balance of Đỏ + Tím customers", "tien"),
     ("nguong_x", "  X (T1 threshold: overdue ≥)", "tien"),
     ("hang_d", "Payment-history grade D (customers, reference)", "so"),
@@ -284,17 +285,15 @@ COT_RISK = [
     ("Reason last week", "ten", 36),       # WR-11 PA1: lý do Sales ghi tuần trước (chỉ để đọc) — bên trái tuần này
     ("Reason for late payment", "ten", 36),
     ("Required action", "ten", 40), ("Contract (PDF)", "ten", 14), ("Job Number", "ten", 30),
-    # WR-13 (FIN 05/11): đánh giá theo tiêu chí FIN — số do tool tính, 3 ô Sales lấy thẳng từ Receivables, mức là công thức
+    # WR-13 (FIN 05/11): đánh giá theo tiêu chí FIN — số do tool tính (3 ô Sales đã bỏ 12/11)
     ("Max days overdue", "so", 9), ("First invoice", "ten", 11), ("Customer group", "ten", 13),
-    ("Adverse info? (Sales)", "ten", 10), ("Customer responds? (Sales)", "ten", 10),
-    ("Broken promises / often late? (Sales)", "ten", 12),
     # WR-15 (Head FIN v3, 06/11): 5 mức màu — số liệu T1–T4 do tool tính; lên thẳng Đỏ + mức cuối là công thức (đổi theo
-    # 3 ô Sales / lý do). Tham số X, Y, N ghi ở đầu sheet; FIN sửa ở sheet "Tham số" của file credit term.
+    # lý do Sales ghi). Tham số X, Y, N ghi ở đầu sheet; FIN sửa ở sheet "Tham số" của file credit term.
     ("Billing avg / month", "tien", 15), ("Credit limit", "tien", 15), ("Credit limit source", "ten", 11),
     ("Late invoices", "so", 8), ("Do not upgrade", "ten", 9), ("Base level (0-4)", "so", 8),
     ("T1: Overdue ≥ X", "so", 7), ("T2: Total > credit limit", "so", 8), ("T3: ≥ N late invoices", "so", 8),
-    ("T4: No contract / term, or new ≥ Y", "so", 10), ("Upgrade +1", "so", 7), ("Straight to Red", "so", 7),
-    ("Final level (0-4)", "so", 7), ("Risk level", "ten", 11), ("Basis", "ten", 40),
+    ("T4: New customer ≥ Y", "so", 10), ("Upgrade +1", "so", 7), ("Straight to Red", "so", 7),
+    ("Final level (0-4)", "so", 7), ("Watch (not overdue)", "ten", 10), ("Risk level", "ten", 13), ("Basis", "ten", 40),
     ("Suggested payment terms", "ten", 26), ("Action plan (FIN)", "ten", 60),
     # điểm lịch sử thanh toán A–D (tham khảo, không ảnh hưởng mức)
     ("Invoices scored", "so", 8), ("Collection rate", "pt", 9), ("Overdue / balance", "pt", 9),
@@ -364,43 +363,34 @@ def cong_thuc_risk(h: int, ngay_chot: Optional[dt.date] = None) -> dict:
 
 def cong_thuc_fin(L: dict, h: int) -> dict:
     """WR-15: cùng luật với wr/danhgia.py (muc_cuoi5, nang_thang, muc3_tu_muc5, hinh_thuc, phuong_an) và dashboard —
-    sửa một chỗ thì sửa cả ba. 3 ô Sales lấy thẳng từ Receivables: Sales sửa ở đó thì mức đổi ngay khi mở file.
-    T1–T4, Upgrade +1, Base level là SỐ do tool tính (không phụ thuộc ô người sửa)."""
+    sửa một chỗ thì sửa cả ba. Lên thẳng Đỏ theo lý do ở Receivables: Sales sửa lý do thì mức đổi ngay khi mở file.
+    T1–T4, Upgrade +1, Base level là SỐ do tool tính. (FIN 12/11: bỏ 3 ô Sales đánh giá.)"""
     from . import danhgia as dg
-    T, G, Q = L["Max days overdue"], L["Customer group"], L["Total overdue"]
-    F0, F1, F2 = (L[x] for x in ("Adverse info? (Sales)", "Customer responds? (Sales)",
-                                 "Broken promises / often late? (Sales)"))
+    G = L["Customer group"]
     BASE, UP, STR, LV = L["Base level (0-4)"], L["Upgrade +1"], L["Straight to Red"], L["Final level (0-4)"]
     LD, LW = L["Reason for late payment"], L["Reason last week"]
-    lay = lambda c: (f"=IFERROR(INDEX('{th.SHEET_BANG}'!${c}:${c},MATCH($B{h},'{th.SHEET_BANG}'!$B:$B,0))&\"\","
-                     f"\"\")")
-    cot_dg = [get_column_letter(k) for k in th.COT_DANH_GIA]
     q = lambda t: '"' + t.replace('"', '""') + '"'
     m3 = f"IF({LV}>=3,3,IF({LV}=2,2,1))"
     pa = lambda nhom: "CHOOSE(" + m3 + "," + ",".join(q(dg.PHUONG_AN[(nhom, m)]) for m in (1, 2, 3)) + ")"
     ly_do = f'IF(TRIM({LD})="",{LW},{LD})'
     tu = ",".join(f'ISNUMBER(SEARCH("{k}",{ly_do}))' for k in dg.TU_KHOA_NANG_THANG)
     return {
-        "Adverse info? (Sales)": lay(cot_dg[0]),
-        "Customer responds? (Sales)": lay(cot_dg[1]),
-        "Broken promises / often late? (Sales)": lay(cot_dg[2]),
-        "Straight to Red": f'=IF(OR({F0}="Có",AND({Q}>0.5,{F2}="Có"),{tu}),1,0)',
-        "Final level (0-4)": (f'=MIN(4,MAX(IF({STR}=1,MAX({BASE},3),{BASE}+{UP}),'
-                              f'IF(AND({Q}>0.5,{F1}="Không"),2,0)))'),
-        "Risk level": "=CHOOSE(" + LV + "+1," + ",".join(f'"{m}"' for m in dg.MUC5) + ")",
+        "Straight to Red": f"=IF(OR({tu}),1,0)",
+        "Final level (0-4)": f"=MIN(4,IF({STR}=1,MAX({BASE},3),{BASE}+{UP}))",
+        # WR-15b: khách trong hạn có dấu hiệu T1–T4 vẫn Trắng, chỉ gắn "↑T…" (cột Watch)
+        "Risk level": ("=CHOOSE(" + LV + "+1," + ",".join(f'"{m}"' for m in dg.MUC5) + ")"
+                       + f'&IF(AND({LV}=0,{L["Watch (not overdue)"]}<>"")," "&{L["Watch (not overdue)"]},"")'),
         "Suggested payment terms": (f'=IF({m3}=3,IF({G}="Mới",{q(dg.HINH_THUC[3][0])},{q(dg.HINH_THUC[3][1])}),'
                                     f'IF({m3}=2,{q(dg.HINH_THUC[2])},{q(dg.HINH_THUC[1])}))'),
-        "Action plan (FIN)": (f'=IF({G}="Mới",{pa("Mới")},IF({G}="Thường xuyên",{pa("Thường xuyên")},{pa("Lâu năm")}))'
-                              f'&IF(AND({F1}="Không",{T}>0),CHAR(10)&{q(dg.KHONG_PHAN_HOI)},"")'),
+        "Action plan (FIN)": f'=IF({G}="Mới",{pa("Mới")},IF({G}="Thường xuyên",{pa("Thường xuyên")},{pa("Lâu năm")}))',
     }
 
 
 def _can_cu_cong_thuc(L: dict, tinh: str) -> str:
-    """Basis: phần tool tính (tuổi nợ, T1–T4) + phần đổi theo ô Sales / lý do."""
-    STR, Q, F1 = L["Straight to Red"], L["Total overdue"], L["Customer responds? (Sales)"]
+    """Basis: phần tool tính (tuổi nợ, T1–T4) + phần đổi theo lý do Sales ghi."""
+    STR = L["Straight to Red"]
     tinh = tinh.replace('"', '""')
-    return (f'=TRIM("{tinh} "&IF({STR}=1,"Lên thẳng Đỏ (mất liên lạc / bất lợi / thất hứa). ","")'
-            f'&IF(AND({Q}>0.5,{F1}="Không"),"Không phản hồi.",""))')
+    return f'=TRIM("{tinh} "&IF({STR}=1,"Lên thẳng Đỏ (lý do: mất liên lạc / hứa không trả…).",""))'
 
 
 def ghi_risk(wb, kq: KetQuaFull, ngay_chot: dt.date) -> None:
@@ -408,7 +398,7 @@ def ghi_risk(wb, kq: KetQuaFull, ngay_chot: dt.date) -> None:
     ws = wb.create_sheet(th.SHEET_RISK)
     _dau_trang(ws, "Receivables Movement & Risk", ngay_chot, "Risk tier per customer")
     ws["F3"] = ("Các cột S1–S7, Signals, Risk Code/Tier, CEO, Trend, Reason, Required action là CÔNG THỨC "
-                "(luật Head of FIN). Lý do và 3 ô Sales đánh giá sửa ở sheet Receivables. Cột Risk level: tiêu chí FIN.")
+                "(luật Head of FIN). Lý do sửa ở sheet Receivables. Cột Risk level: 5 màu Head FIN (chỉ tô ở sheet này).")
     ws["F3"].font = Font(name=th.PHONG_NOI_DUNG, size=9, italic=True, color="7F7F7F")
     dong = []
     for i, r in enumerate(kq.rui_ro, start=1):
@@ -417,16 +407,16 @@ def ghi_risk(wb, kq: KetQuaFull, ngay_chot: dt.date) -> None:
                      r.cuoi_ky, r.nhap_bo_sung, *r.nhom, r.qua_han, r.tt_total, r.tt_qua_han, r.tt_61, *r.s, r.ngay_hen, r.s7,
                      r.so_dau_hieu, r.ma_dau_hieu, r.nhom_rui_ro, "Yes" if r.ceo else "",
                      r.xu_huong, r.ly_do_truoc, r.ly_do, r.viec_can_lam, NHAN_LINK if la_link(r.link_hd) else "", r.job,
-                     r.ngay_qh, r.ngay_hd_dau, r.nhom_kh, *r.danh_gia, r.billing or None, r.han_muc_ap,
+                     r.ngay_qh, r.ngay_hd_dau, r.nhom_kh, r.billing or None, r.han_muc_ap,
                      r.nguon_han_muc, r.so_hd_tre, "Có" if r.khong_nang else "", r.muc_goc, *r.tieu_chi, r.nang,
-                     r.nang_thang, r.muc5, r.ten_muc, r.can_cu,
+                     r.nang_thang, r.muc5, r.theo_doi, r.ten_muc, r.can_cu,
                      r.hinh_thuc, r.phuong_an, r.cham.get("so_hd"), r.cham.get("ty_le_thu_hoi"),
                      r.cham.get("ty_le_qua_han"), r.cham.get("ty_le_tra_du"), r.diem, r.hang])
     hang = bang(ws, 5, COT_RISK, dong)
     vi_tri = {ten: i for i, (ten, _, _) in enumerate(COT_RISK, start=1)}
     so_cot = {"Not yet due", "1 - 30", "31 - 60", "61 - 90", "91 - 120", "120+", "Last week total",
               "Last week overdue", "Last week 61+", "Max days overdue", "Late invoices", "Base level (0-4)",
-              "T1: Overdue ≥ X", "T2: Total > credit limit", "T3: ≥ N late invoices", "T4: No contract / term, or new ≥ Y",
+              "T1: Overdue ≥ X", "T2: Total > credit limit", "T3: ≥ N late invoices", "T4: New customer ≥ Y",
               "Upgrade +1"}
     for h in range(6, 6 + len(dong)):
         for ten in so_cot:                     # ô số 0 phải là 0 (không để trống) để công thức so sánh đúng
@@ -457,7 +447,7 @@ def ghi_risk(wb, kq: KetQuaFull, ngay_chot: dt.date) -> None:
         o.alignment = Alignment(horizontal="center", vertical="top")
         for ten in ("Max days overdue", "Customer group", "Score", "Grade", "Invoices scored", "Credit limit source",
                     "Late invoices", "Do not upgrade", "Base level (0-4)", "T1: Overdue ≥ X", "T2: Total > credit limit",
-                    "T3: ≥ N late invoices", "T4: No contract / term, or new ≥ Y", "Upgrade +1"):
+                    "T3: ≥ N late invoices", "T4: New customer ≥ Y", "Upgrade +1"):
             ws.cell(row=h, column=vi_tri[ten]).alignment = Alignment(horizontal="center", vertical="top")
     if dong:
         # WR-15: 5 màu Head FIN, CHỈ tô ô Risk level (và Grade) — không tô cả hàng (user 06/11: nhìn đau mắt).
@@ -465,9 +455,10 @@ def ghi_risk(wb, kq: KetQuaFull, ngay_chot: dt.date) -> None:
         cuoi = 5 + len(dong)
         for ten_cot, bang_mau in (("Risk level", th.MAU_MUC_FIN), ("Grade", MAU_HANG)):
             cl = get_column_letter(vi_tri[ten_cot])
-            for gia_tri, (nen, chu) in bang_mau.items():
+            for gia_tri, (nen, chu) in bang_mau.items():      # LEFT: "Trắng ↑T3" vẫn là Trắng
                 ws.conditional_formatting.add(f"{cl}6:{cl}{cuoi}", FormulaRule(
-                    formula=[f'${cl}6="{gia_tri}"'], fill=th.nen_cf(nen), font=Font(color=chu, bold=True)))
+                    formula=[f'LEFT(${cl}6,{len(gia_tri)})="{gia_tri}"'], fill=th.nen_cf(nen),
+                    font=Font(color=chu, bold=True)))
     ws.auto_filter.ref = f"A5:{get_column_letter(len(COT_RISK))}{5 + len(dong)}"
     # WR-15: tham số tiêu chí nâng hạng (Head FIN) ghi ở đầu sheet, trên các cột T1–T4
     c0 = vi_tri["T1: Overdue ≥ X"]
@@ -503,7 +494,7 @@ COT_DANH_GIA = [("No.", "so", 6), ("Code", "ten", 14), ("Customer's Name", "ten"
                 ("Hệ số điều khoản (tháng)", "so", 10), ("Credit limit tạm tính", "tien", 16),
                 ("Credit limit áp dụng", "tien", 16), ("Nguồn credit limit", "ten", 13), ("Xếp hạng Overdue", "so", 9),
                 ("T1: Overdue ≥ X", "so", 8), ("T2: Total > Credit limit", "so", 8), ("Số HĐ trả trễ", "so", 8),
-                ("T3: ≥ N HĐ trễ", "so", 8), ("T4: Chưa HĐ / term / khách mới ≥ Y", "so", 10),
+                ("T3: ≥ N HĐ trễ", "so", 8), ("T4: Khách mới ≥ Y", "so", 10),
                 ("Không nâng hạng", "ten", 9), ("KẾT QUẢ", "ten", 20), ("Mức gốc", "ten", 9), ("Risk level", "ten", 11),
                 ("Ghi chú", "ten", 50)]
 
@@ -521,7 +512,7 @@ def ghi_danh_gia(wb, kq: KetQuaFull, ngay_chot: dt.date) -> None:
                 f"   |   Số khách nâng hạng: {so_nang}/{len(rr)}")
     ws["F2"].font = Font(name=th.PHONG_TIEU_DE, size=11, bold=True, color=th.TIM)
     ws["F3"] = ("Tool tự tính mỗi tuần — không nhập tay ở đây. Hạn mức hợp đồng, Không nâng hạng: file credit term. Lãi "
-                "gộp và tỷ lệ: sheet Tham số của file credit term. Risk level cuối (sau ô Sales): sheet AR Risk.")
+                "gộp và tỷ lệ: sheet Tham số của file credit term. Risk level cuối (sau lý do Sales): sheet AR Risk.")
     ws["F3"].font = Font(name=th.PHONG_NOI_DUNG, size=9, italic=True, color="7F7F7F")
     qh = sorted({r.qua_han for r in rr if r.qua_han > 0.5}, reverse=True)
     hang_qh = {v: i for i, v in enumerate(qh, start=1)}
@@ -534,17 +525,23 @@ def ghi_danh_gia(wb, kq: KetQuaFull, ngay_chot: dt.date) -> None:
             ghi.append("T2 chưa đánh giá được: thiếu billing / term / credit limit.")
         dat = [t for t, v in zip(("T1", "T2", "T3", "T4"), r.tieu_chi) if v]
         if dat:
-            ghi.append("Thỏa " + ", ".join(dat) + (" — khách ✓ không nâng hạng." if r.khong_nang else "."))
+            ghi.append("Thỏa " + ", ".join(dat) + (" — khách ✓ không nâng hạng." if r.khong_nang else
+                                                   " — đang trong hạn: giữ Trắng, theo dõi." if r.theo_doi else "."))
+        if not (r.credit_term or "").strip() or r.co_hd is False:
+            ghi.append("Bổ sung: " + " · ".join(x for x, c in (("credit term", not (r.credit_term or "").strip()),
+                                                              ("✓ hợp đồng", r.co_hd is False)) if c)
+                       + " (sheet Contracts) — không nâng màu.")
         dong.append([i, r.ma, r.ten, r.credit_term, r.cuoi_ky, r.qua_han, r.billing or None, r.han_muc or None, r.he_so,
                      tam, r.han_muc_ap, r.nguon_han_muc, hang_qh.get(r.qua_han), *r.tieu_chi[:2], r.so_hd_tre,
-                     *r.tieu_chi[2:], "Có" if r.khong_nang else "", "NÂNG HẠNG RỦI RO" if r.nang else "",
+                     *r.tieu_chi[2:], "Có" if r.khong_nang else "",
+                     "NÂNG HẠNG RỦI RO" if r.nang else ("THEO DÕI (trong hạn)" if r.theo_doi else ""),
                      dg.MUC5[r.muc_goc], r.ten_muc, " ".join(ghi)])
     bang(ws, 5, COT_DANH_GIA, dong)
     vt = {t: i for i, (t, _, _) in enumerate(COT_DANH_GIA, start=1)}
     for h in range(6, 6 + len(dong)):
         ws.cell(h, vt["Hệ số điều khoản (tháng)"]).number_format = "0.00"
         for t in ("T1: Overdue ≥ X", "T2: Total > Credit limit", "Số HĐ trả trễ", "T3: ≥ N HĐ trễ",
-                  "T4: Chưa HĐ / term / khách mới ≥ Y", "Xếp hạng Overdue", "Không nâng hạng", "Mức gốc", "Risk level"):
+                  "T4: Khách mới ≥ Y", "Xếp hạng Overdue", "Không nâng hạng", "Mức gốc", "Risk level"):
             o = ws.cell(h, vt[t])
             if o.value is None and t.startswith("T"):
                 o.value = 0
@@ -556,10 +553,11 @@ def ghi_danh_gia(wb, kq: KetQuaFull, ngay_chot: dt.date) -> None:
             cl = get_column_letter(vt[ten_cot])
             for gia_tri, (nen, chu) in th.MAU_MUC_FIN.items():
                 ws.conditional_formatting.add(f"{cl}6:{cl}{cuoi}", FormulaRule(
-                    formula=[f'${cl}6="{gia_tri}"'], fill=th.nen_cf(nen), font=Font(color=chu, bold=True)))
+                    formula=[f'LEFT(${cl}6,{len(gia_tri)})="{gia_tri}"'], fill=th.nen_cf(nen),
+                    font=Font(color=chu, bold=True)))
         cl = get_column_letter(vt["KẾT QUẢ"])
         ws.conditional_formatting.add(f"{cl}6:{cl}{cuoi}", FormulaRule(
-            formula=[f'${cl}6<>""'], fill=th.nen_cf("FFC7CE"), font=Font(color="9C0006", bold=True)))
+            formula=[f'LEFT(${cl}6,4)="NÂNG"'], fill=th.nen_cf("FFC7CE"), font=Font(color="9C0006", bold=True)))
     ws.auto_filter.ref = f"A5:{get_column_letter(len(COT_DANH_GIA))}{5 + len(dong)}"
     ws.freeze_panes = "D6"
 
@@ -847,14 +845,15 @@ CACH_TINH = [
      "Misa — Tổng hợp TK131"),
     ("AR Risk", "Risk level (Head of FIN, WR-15)", "Base level by the OLDEST ageing bucket with money: 0 Trắng (not "
      "overdue) · 1 Vàng (1–30) · 2 Cam (31–60) · 3 Đỏ (61–90) · 4 Tím (91+). +1 level (not cumulative) if at least one: "
-     "T1 overdue ≥ X · T2 balance > credit limit · T3 ≥ N invoices paid more than 15 days late in 6 months · T4 no ✓ "
-     "contract, no credit term, or new customer (no balance last week) owing ≥ Y — except customers ticked 'Không nâng "
-     "hạng màu' in the credit term file. Straight to at least Đỏ: reason mentions lost contact / refuses to pay, adverse "
-     "information = Có, or overdue and broken promises = Có. Overdue and no response → at least Cam. Max Tím. "
+     "T1 overdue ≥ X · T2 balance > credit limit · T3 ≥ N invoices paid more than 15 days late in 6 months · T4 new "
+     "customer (no balance last week) owing ≥ Y — except customers ticked 'Không nâng hạng màu' in the credit term file. "
+     "Head of FIN 12/11: the +1 applies ONLY to customers with overdue money; a customer fully within term stays Trắng "
+     "and gets a watch mark (e.g. 'Trắng ↑T3'). Missing credit term / no ✓ contract no longer raises the colour: it is "
+     "listed in Contracts as data to complete. Straight to at least Đỏ: reason mentions lost contact / promises not to pay / refuses to pay. Max Tím. "
      "X = MIN(X1 = 25% × average monthly gross profit of the last quarter, X2 = overdue of the last customer in the top "
      "15% overdue customers, rounded up); no gross profit entered → X = X2. Credit limit = 'Hạn mức nợ' in the credit "
      "term file, otherwise average monthly billing (6 months) × term factor (months) × 1.3. Parameters: sheet 'Tham "
-     "số' of the credit term file (FIN updates monthly). Colour on the Risk level cell only (Receivables and AR Risk). "
+     "số' of the credit term file (FIN updates monthly). Colour on the Risk level cell of AR Risk only (FIN 12/11: not in Receivables). "
      "For the action plan / payment terms: Trắng, Vàng → 1 · Cam → 2 · Đỏ, Tím → 3.",
      "Chi tiết TK131 · credit term file · Receivables (sales)"),
     ("AR Risk", "Customer group", "Mới: first invoice within the last 6 months (or none) · Lâu năm: first invoice before "
@@ -869,9 +868,6 @@ CACH_TINH = [
      "+ invoices paid in full (≥90% → 10, ≥70% → 6, ≥50% → 3). A ≥ 80 · B ≥ 60 · C ≥ 40 · D. Invoices issued this year "
      "plus older invoices still open on 1 January. Collection rate = (invoice value + opening − still owed) / invoice "
      "value; credit notes are counted as collected (the ledger does not separate them).", "Chi tiết TK131"),
-    ("Receivables", "Sales assessments (WR-13)", "3 cells per customer, Có / Không: Adverse info? · Customer responds? · "
-     "Broken promises / often late? Sales update them each week; a new week starts with last week's values "
-     "(defaults Không · Có · Không).", "Receivables"),
     ("Receivables", "Job due date (WR-13)", "Each job row shows the due date of its invoice = invoice date + credit "
      "term (FIN 05/11), the same date used for its ageing bucket.", "Chi tiết TK131 · credit term file"),
     ("AR Risk · Contracts", "Contract (PDF)", "'Mở hợp đồng' opens the contract file in the browser — the link "

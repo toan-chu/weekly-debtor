@@ -4,7 +4,7 @@ Nối tiếp: WR-13
 Người làm: claude
 Người soát: user
 Trạng thái: chờ-soát
-Vòng: 1/2
+Vòng: 2/2
 
 ## ĐỀ BÀI
 
@@ -99,6 +99,24 @@ Bổ sung 06/11 16:45 (user: "chạy lại có lun 2 sheet tham số và đánh 
 W44 chạy lại: sheet Đánh giá 55 khách, NÂNG HẠNG 54 · Tạm tính 49 / Thiếu dữ liệu 6 · Tham số X1 974,625,749 · X 227,689,408
 LibreOffice: lỗi 0 · pytest 99 passed, 20 skipped · dashboard headless: errors 0, tên đủ (ảnh dash_cf.png)
 ```
+
+Vòng 2 (12/11) — FIN hỏi sau W45: "sao thêm 3 cột này", "các nhà này toàn công nợ trong hạn nhưng sao chuyển qua vàng hết".
+W45: 62/62 khách +1; 23 khách trong hạn thành Vàng (T4 19 — 16 chỉ vì T4 —, T3 11, T2 5). Head FIN chốt (user chuyển):
+khách trong hạn (A) giữ Trắng + ký hiệu ↑ · T4 thiếu term / chưa ✓ HĐ (A) chuyển sang danh sách bổ sung, không nâng màu.
+Sửa: `tindung.danh_gia_mau5` (T4 chỉ khách mới ≥ Y; nang chỉ khi Q > 0,5; `theo_doi` "↑T…") · AR Risk thêm cột
+"Watch (not overdue)", Risk level = màu & " ↑T…" · CF đổi sang LEFT(…) (Receivables, AR Risk, Đánh giá) · Contracts thêm
+"Chưa ✓ hợp đồng" (`khachhang.LOAI_CHUA_HD`) · Đánh giá: "THEO DÕI (trong hạn)" + ghi chú bổ sung · Summary
+`trang_theo_doi` · dashboard nhãn "Trắng ↑T3".
+```
+pytest: 100 passed, 20 skipped · làm hỏng (bỏ điều kiện Q > 0,5) → test_t2… FAILED
+W44 chạy lại (máy ảo): LibreOffice lỗi 0 · Receivables == AR Risk 55/55 · Trắng 16 (↑ 14) · Vàng 1 · Cam 19 · Đỏ 5 · Tím 14
+Contracts: Chưa ✓ hợp đồng 35 · Hết hạn 8 · Chưa có term 3 · nâng hạng 34/55 (trước 54/55)
+```
+FIN 12/11 15:04 (user chuyển, "Ta chắc bỏ theo ý em ấy"): "3 cái cột thừa … bỏ giúp" · "ô màu em chỉ cần thể hiện bên
+sheet ar risk thôi … ko cho vào sheet receivables vì nó nhiều cột quá rồi … trùng dữ liệu ở 2 sheet". Đã bỏ cột Risk level
++ 3 ô Sales khỏi Receivables (`thuonghieu.COT` còn 15 cột) và khỏi AR Risk; `tinh_full` luôn dùng giá trị mặc định (giá trị
+cũ trong sổ ghi bỏ qua); lên thẳng Đỏ chỉ theo từ khoá lý do. pytest 100 passed; W44 chạy lại: Receivables 16 cột, lỗi 0,
+Trắng 16 · Vàng 1 · Cam 19 · Đỏ 5 · Tím 14; dashboard errors 0.
 
 ## HISTORY
 ### 2026-11-06 (vòng 1)

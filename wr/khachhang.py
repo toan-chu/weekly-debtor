@@ -334,6 +334,7 @@ def _huong_dan(ws, sales: Sequence[str]) -> None:
 # term cũ (tool không đổi term, chỉ cảnh báo); N3 chỉ hiện câu việc cần làm, FIN tự quyết ngưng dịch vụ.
 NGUONG_SAP_HET = (30, 60, 90)
 LOAI_CHUA_MASTER = "Chưa có trong file credit term"
+LOAI_CHUA_HD = "Chưa ✓ hợp đồng"
 
 
 def _hom_nay():
@@ -477,11 +478,16 @@ def canh_bao_hop_dong(master: Dict[str, Dict], rui_ro, ngay_chot, term_truoc: Di
             them("Chưa có credit term", "vang", r.ma, r.ten, r.salesman, r.cuoi_ky, m,
                  f"Có trong file credit term nhưng chưa điền Thời hạn — tool đang tính theo: {r.credit_term or '30 ngày (mặc định)'}.")
             continue
+        if m.get("co_hd") is False:
+            # WR-15b (Head FIN 12/11): chưa ✓ hợp đồng KHÔNG nâng màu nữa — là việc cần bổ sung, liệt kê ở đây
+            them(LOAI_CHUA_HD, "", r.ma, r.ten, r.salesman, r.cuoi_ky, m,
+                 "Sales tích ✓ cột 'Đã có hợp đồng' nếu đã ký; chưa có thì làm hợp đồng.")
         cu = term_truoc.get(ma)
         if cu and _chuan_term(cu) != _chuan_term(r.credit_term):
             them("Credit term vừa đổi", "vang", r.ma, r.ten, r.salesman, r.cuoi_ky, m,
                  f"Tuần trước: {cu} → tuần này: {r.credit_term}. FIN xác nhận đúng hợp đồng.")
-    thu_tu = {"Hợp đồng đã hết hạn": 0, "Credit term vừa đổi": 1, LOAI_CHUA_MASTER: 2, "Chưa có credit term": 2}
+    thu_tu = {"Hợp đồng đã hết hạn": 0, "Credit term vừa đổi": 1, LOAI_CHUA_MASTER: 2, "Chưa có credit term": 2,
+              LOAI_CHUA_HD: 5}
     ra.sort(key=lambda x: (thu_tu.get(x["loai"], 3 if x["loai"].startswith("Sắp") else 4),
                            x["con_lai"] if x["con_lai"] is not None else 0, -x["du_no"]))
     return ra

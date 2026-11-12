@@ -543,6 +543,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
       // WR-15: mức gốc + "+1" do tool tính (số); lên thẳng Đỏ / mức cuối tính lại vì phụ thuộc ô Sales, lý do
       c.base = col("Base level (0-4)") >= 0 ? n0(r[col("Base level (0-4)")]) : null;
       c.up = col("Upgrade +1") >= 0 ? n0(r[col("Upgrade +1")]) : 0;
+      c.watch = col("Watch (not overdue)") >= 0 ? String(r[col("Watch (not overdue)")] ?? "") : "";
       c.opening = n0(r[col("Opening (Misa)")]); c.inc = n0(r[col("Increase")]); c.dec = n0(r[col("Decrease")]);
     }
     d.cust.forEach(tierOf);
@@ -683,7 +684,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
     let m = thang ? Math.max(base, 3) : base + (c.up || 0);
     if (qh && c.dg[1] === "Không") m = Math.max(m, 2);
     m = Math.min(4, m);
-    c.mucFin = m; c.mucTen = MUC_FIN[m];
+    c.mucFin = m; c.mucTen = MUC_FIN[m] + (m === 0 && c.watch ? " " + c.watch : "");   // WR-15b: "Trắng ↑T3"
   }
 
   // ---------------- trang (tab) và địa chỉ ----------------

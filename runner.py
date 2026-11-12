@@ -422,6 +422,7 @@ def chay_full(
         **{f"muc_{i}": sum(1 for r in kq.rui_ro if r.muc5 == i) for i in range(5)},
         "no_rui_ro_cao": round(sum(r.cuoi_ky for r in kq.rui_ro if r.muc5 >= 3), 2),
         "nguong_x": kq.x,
+        "trang_theo_doi": sum(1 for r in kq.rui_ro if r.muc5 == 0 and r.theo_doi),
         "hang_d": sum(1 for r in kq.rui_ro if r.hang == "D"),
         "sales_chua_giai_trinh": len({r.salesman or "(chưa có Sales)" for r in kq.rui_ro
                                       if r.qua_han > 0.5 and r.s[3]}),

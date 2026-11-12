@@ -121,19 +121,21 @@ def _sua(f, ma, cot, gia_tri):
     wb.save(f)
 
 
-def test_w40_chua_co_file_credit_term_moi_khach_dinh_t4(ws):
+def test_w40_khach_trong_han_giu_trang_va_thieu_term_khong_nang(ws):
     _tha_4_file(ws, 40)
     assert runner.quet_thu_muc(ws) == 1
     wb = openpyxl.load_workbook(next(ws.ra.glob("2026_W40_*.xlsx")))
     rk = _risk(wb)
     assert rk["KA"]["Base level (0-4)"] == 2 and rk["KA"]["T1: Overdue ≥ X"] == 1, "KA quá hạn 100 = X2 (top 15%)"
-    assert all(v["T4: No contract / term, or new ≥ Y"] == 1 for v in rk.values()), "chưa có credit term → T4"
+    assert all(v["T4: New customer ≥ Y"] == 0 for v in rk.values()), \
+        "Head FIN 12/11: chưa có credit term KHÔNG còn nâng màu (T4 chỉ khách mới ≥ Y)"
     sm = _sm(wb)
-    assert (sm["muc_0"], sm["muc_1"], sm["muc_2"], sm["muc_3"], sm["muc_4"]) == (0, 2, 1, 1, 0)
+    assert (sm["muc_0"], sm["muc_1"], sm["muc_2"], sm["muc_3"], sm["muc_4"]) == (2, 1, 0, 1, 0), \
+        "KA Cam + T1 = Đỏ · KB Vàng · KC, KK trong hạn = Trắng"
     assert sm["nguong_x"] == 100
-    rec = wb[th.SHEET_BANG]
-    cf = [(str(c.sqref), [r.formula[0] for r in c.rules]) for c in rec.conditional_formatting]
-    assert any(s_.startswith("D6") and len(f_) == 5 for s_, f_ in cf), "5 màu, chỉ tô ô Risk level"
+    k = wb[th.SHEET_RISK]                              # màu chỉ ở ô Risk level của AR Risk (FIN 12/11)
+    cf = [(str(c.sqref), [r.formula[0] for r in c.rules]) for c in k.conditional_formatting]
+    assert any(len(f_) == 5 for _, f_ in cf), "5 màu"
     assert not any(s_.startswith("A6") for s_, _ in cf), "không tô cả hàng"
 
 
@@ -160,7 +162,7 @@ def test_t2_han_muc_khong_nang_hang_va_lai_gop(ws):
     assert b["T1: Overdue ≥ X"] == 1 and b["Do not upgrade"] == "Có" and b["Upgrade +1"] == 0
     c = rk["KC"]                  # 1 hoá đơn 80 trong 6 tháng → billing 13,33 × 1 × 1,3 = 17,33 < dư 100 → T2 (tạm tính)
     assert c["Credit limit source"] == "Tạm tính" and c["Credit limit"] == 17.33 and c["T2: Total > credit limit"] == 1
-    assert c["T4: No contract / term, or new ≥ Y"] == 0, "đã ✓ hợp đồng, có term, dư 100 < Y"
+    assert c["Upgrade +1"] == 0 and c["Watch (not overdue)"] == "↑T2", "Head FIN 12/11: trong hạn → Trắng ↑T2"
     dgia = wb[th.SHEET_DANH_GIA]                      # sheet Đánh giá như file v3 của Head FIN
     cot = {dgia.cell(5, c).value: c for c in range(1, dgia.max_column + 1)}
     ka = _hang(dgia, "KA")
@@ -171,46 +173,57 @@ def test_t2_han_muc_khong_nang_hang_va_lai_gop(ws):
     assert tso["X áp dụng = MIN(X1, X2)"] == 10 and tso["Lãi gộp bình quân / tháng"] == 40
     assert tso["Tỷ lệ áp dụng trên lãi gộp"] == 0.25 and tso["Tỷ lệ top khách đang quá hạn"] == 0.15
     sm = _sm(wb)
-    assert (sm["muc_0"], sm["muc_1"], sm["muc_2"], sm["muc_3"]) == (0, 3, 0, 1), \
-        "KB Vàng (không nâng) · KC, KK Trắng + T2 = Vàng · KA Cam + 1 = Đỏ"
+    assert (sm["muc_0"], sm["muc_1"], sm["muc_2"], sm["muc_3"], sm["trang_theo_doi"]) == (2, 1, 0, 1, 2), \
+        "KB Vàng (không nâng) · KC, KK trong hạn: Trắng ↑T2 · KA Cam + 1 = Đỏ"
 
 
-def test_o_sales_giu_tuan_truoc_va_nang_thang_len_do(ws):
+def test_receivables_khong_con_cot_mau_va_ly_do_mat_lien_lac_len_do(ws):
+    """FIN 12/11: bỏ Risk level + 3 ô Sales khỏi Receivables (màu chỉ ở AR Risk). Lên thẳng Đỏ theo lý do tuần trước."""
     _tha_4_file(ws, 40)
     assert runner.quet_thu_muc(ws) == 1
     w40 = next(ws.ra.glob("2026_W40_*.xlsx"))
+    rec = openpyxl.load_workbook(w40)[th.SHEET_BANG]
+    tieu = [c.value for c in rec[5]]
+    assert "Risk level" not in tieu and not any("(Sales)" in str(t) for t in tieu), tieu
+    assert not any(str(c.sqref).startswith("D6") for c in rec.conditional_formatting)
     time.sleep(1.1)
-    _sua(w40, "KC", th.COT_DANH_GIA[0], "Có")                # Sales: KC có thông tin bất lợi
+    wb = openpyxl.load_workbook(w40)
+    wb[th.SHEET_BANG].cell(_hang(wb[th.SHEET_BANG], "KC"), th.COT_LY_DO_NAY, value="Mất liên lạc với kế toán")
+    wb.save(w40)
     _tha_4_file(ws, 41)
     assert runner.quet_thu_muc(ws) == 1
-    wb = openpyxl.load_workbook(next(ws.ra.glob("2026_W41_*.xlsx")))
-    rec = wb[th.SHEET_BANG]
-    assert rec.cell(_hang(rec, "KC"), th.COT_DANH_GIA[0]).value == "Có", "tuần mới giữ ô Sales của tuần trước"
-    sm = _sm(wb)
-    assert (sm["muc_3"], sm["muc_2"], sm["muc_1"]) == (2, 1, 1), "KC lên thẳng Đỏ vì thông tin bất lợi (KA Đỏ sẵn)"
+    sm = _sm(openpyxl.load_workbook(next(ws.ra.glob("2026_W41_*.xlsx"))))
+    assert sm["muc_3"] + sm["muc_4"] == 2, "KC lên thẳng Đỏ theo lý do tuần trước (KA Đỏ sẵn)"
 
 
 @pytest.mark.skipif(not shutil.which("soffice"), reason="Cần LibreOffice để tính lại công thức")
-def test_cong_thuc_excel_khop_python_va_doi_theo_o_sales(ws, tmp_path):
+def test_cong_thuc_excel_khop_python_va_doi_theo_ly_do(ws, tmp_path):
     _tha_4_file(ws, 40)
     assert runner.quet_thu_muc(ws) == 1
     f = next(ws.ra.glob("2026_W40_*.xlsx"))
-    out = tmp_path / "lo"
-    subprocess.run(["soffice", "--headless", "--calc", "--convert-to", "xlsx", "--outdir", str(out), str(f)],
-                   check=True, capture_output=True, timeout=120)
-    wb = openpyxl.load_workbook(out / f.name, data_only=True)
-    rec = wb[th.SHEET_BANG]
-    muc = {rec.cell(r, 2).value: rec.cell(r, th.C_MUC).value for r in range(6, rec.max_row)
-           if rec.cell(r, 2).value and rec.cell(r, 2).value != "TOTAL"}
-    assert muc == {"KA": "Đỏ", "KB": "Cam", "KC": "Vàng", "KK": "Vàng"}, muc
-    loi = [o.coordinate for s_ in wb for r in s_.iter_rows() for o in r
-           if isinstance(o.value, str) and o.value.startswith(("#", "Err:"))]
-    assert not loi, f"công thức lỗi: {loi[:5]}"
-    # Sales sửa tay trong Excel → mức đổi theo, không cần chạy tool
+
+    def muc(thu_muc):
+        subprocess.run(["soffice", "--headless", "--calc", "--convert-to", "xlsx", "--outdir", str(thu_muc), str(f)],
+                       check=True, capture_output=True, timeout=120)
+        wb = openpyxl.load_workbook(thu_muc / f.name, data_only=True)
+        loi = [o.coordinate for s_ in wb for r in s_.iter_rows() for o in r
+               if isinstance(o.value, str) and o.value.startswith(("#", "Err:"))]
+        assert not loi, f"công thức lỗi: {loi[:5]}"
+        return {k_: v["Risk level"] for k_, v in _risk(wb).items()}
+    assert muc(tmp_path / "lo") == {"KA": "Đỏ", "KB": "Vàng", "KC": "Trắng", "KK": "Trắng"}
     time.sleep(1.1)
-    _sua(f, "KC", th.COT_DANH_GIA[0], "Có")
-    out2 = tmp_path / "lo2"
-    subprocess.run(["soffice", "--headless", "--calc", "--convert-to", "xlsx", "--outdir", str(out2), str(f)],
-                   check=True, capture_output=True, timeout=120)
-    rec = openpyxl.load_workbook(out2 / f.name, data_only=True)[th.SHEET_BANG]
-    assert rec.cell(_hang(rec, "KC"), th.C_MUC).value == "Đỏ"
+    wb = openpyxl.load_workbook(f)                      # Sales ghi lý do trong Excel → mức đổi theo, không chạy tool
+    wb[th.SHEET_BANG].cell(_hang(wb[th.SHEET_BANG], "KC"), th.COT_LY_DO_NAY, value="khách hứa không trả")
+    wb.save(f)
+    assert muc(tmp_path / "lo2")["KC"] == "Đỏ"
+
+
+def test_chua_tich_hop_dong_vao_contracts_khong_nang_mau():
+    """Head FIN 12/11: chưa ✓ hợp đồng / chưa có term là việc cần bổ sung (sheet Contracts), không nâng màu."""
+    from types import SimpleNamespace as NS
+    m = {"KA": dict(ten=A, term="30 days", co_hd=False, han_dung=None, so_hd="", sales="", link_hd=""),
+         "KB": dict(ten=B, term="30 days", co_hd=True, han_dung=None, so_hd="", sales="", link_hd="")}
+    rr = [NS(ma="KA", ten=A, salesman="S", cuoi_ky=100.0, credit_term="30 days", tang=0.0),
+          NS(ma="KB", ten=B, salesman="S", cuoi_ky=50.0, credit_term="30 days", tang=0.0)]
+    ra = kh.canh_bao_hop_dong(m, rr, D(2026, 11, 7), {})
+    assert [(c["ma"], c["loai"]) for c in ra] == [("KA", kh.LOAI_CHUA_HD)]

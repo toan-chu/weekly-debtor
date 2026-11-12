@@ -36,7 +36,6 @@ COT = [
     ("No.", "ten", 6),
     ("Code", "ten", 16),
     ("Customer's Name", "ten", 46),
-    ("Risk level", "ten", 13),                     # WR-13 (FIN 05/11): ô Mức độ cạnh tên khách — công thức từ AR Risk
     ("Credit Term", "ten", 14),
     ("Total", "tien", 16),
     ("Current", "tien", 15),
@@ -49,10 +48,7 @@ COT = [
     ("Job Number", "ten", 30),
     ("Reason last week (read only)", "ten", 40),   # WR-12 (user 29/10): tuần trước bên TRÁI, tuần này bên phải
     ("Reason for late payment", "ten", 60),
-    # WR-13 (FIN 05/11): Sales đánh giá mỗi tuần, tuần mới giữ giá trị tuần trước
-    ("Adverse info? (Sales)", "ten", 11),
-    ("Customer responds? (Sales)", "ten", 11),
-    ("Broken promises / often late? (Sales)", "ten", 13),
+    # FIN 12/11: bỏ cột Risk level và 3 ô Sales đánh giá khỏi Receivables (nhiều cột, trùng AR Risk) — màu chỉ ở AR Risk
 ]
 
 
@@ -61,13 +57,14 @@ def c(ten: str) -> int:
     return [t for t, _, _ in COT].index(ten) + 1
 
 
-C_TEN, C_MUC, C_TERM, C_TOTAL = c("Customer's Name"), c("Risk level"), c("Credit Term"), c("Total")
+C_TEN, C_TERM, C_TOTAL = c("Customer's Name"), c("Credit Term"), c("Total")
 C_NHOM0, C_NHOM5 = c("Current"), c("120+")
 C_SALES, C_JOB = c("Salesman"), c("Job Number")
 COT_LY_DO_TRUOC_SO = c("Reason last week (read only)")
 COT_LY_DO_NAY = c("Reason for late payment")
-COT_DANH_GIA = [c("Adverse info? (Sales)"), c("Customer responds? (Sales)"), c("Broken promises / often late? (Sales)")]
-# giá trị mặc định khi chưa ai chọn (như file FIN): không có thông tin bất lợi · khách có phản hồi · không thất hứa
+# WR-13 3 ô Sales đánh giá: FIN 12/11 bỏ khỏi báo cáo. Luật vẫn nhận giá trị mặc định (không nâng gì) — lên thẳng Đỏ
+# chỉ còn theo lý do (mất liên lạc, hứa không trả…).
+# giá trị mặc định: không có thông tin bất lợi · khách có phản hồi · không thất hứa
 DANH_GIA_MAC_DINH = ("Không", "Có", "Không")
 # WR-15 (Head FIN, file W43 tiêu chí nâng hạng v3, 06/11): 5 mức màu 0–4, CHỈ tô ô Risk level (user: tô cả hàng đau mắt)
 MUC_FIN = ("Trắng", "Vàng", "Cam", "Đỏ", "Tím")

@@ -94,6 +94,7 @@ class DongRuiRo:
     nang: int = 0                        # +1 mức
     nang_thang: int = 0                  # lên thẳng ít nhất Đỏ
     muc5: int = 0                        # mức cuối 0–4
+    theo_doi: str = ""                   # khách trong hạn có dấu hiệu T1–T4: "↑T2 T3" (không đổi màu)
     can_cu_goc: str = ""                 # phần căn cứ tool tính (tuổi nợ, T1–T4) — Excel nối thêm phần ô Sales
 
     @property
@@ -103,7 +104,7 @@ class DongRuiRo:
 
     @property
     def ten_muc(self) -> str:
-        return th_.MUC_FIN[self.muc5]
+        return th_.MUC_FIN[self.muc5] + (f" {self.theo_doi}" if self.muc5 == 0 and self.theo_doi else "")
 
     @property
     def qua_han(self) -> float:
@@ -514,19 +515,24 @@ def danh_gia_mau5(r: DongRuiRo, x: float, y: float, so_hd_tre: int) -> DongRuiRo
         int(Q > 0.5 and Q >= x),                                                         # T1
         int(r.han_muc_ap is not None and J > r.han_muc_ap),                              # T2
         int(r.so_hd_tre >= so_hd_tre),                                                   # T3
-        int(J > 0.5 and (r.co_hd is False or not (r.credit_term or "").strip()
-                         or (r.tt_total < 0.5 and J >= y))),                             # T4
+        # WR-15b (Head FIN 12/11): T4 chỉ còn khách mới nợ ≥ Y. Chưa có term / chưa ✓ hợp đồng là việc cần bổ sung
+        # (sheet Contracts), không nâng màu.
+        int(J > 0.5 and r.tt_total < 0.5 and J >= y),                                    # T4
     ]
-    r.nang = int(not r.khong_nang and any(r.tieu_chi))
+    co_dau_hieu = not r.khong_nang and any(r.tieu_chi)
+    # WR-15b (Head FIN 12/11): khách đang trong hạn KHÔNG +1 màu — giữ Trắng, chỉ gắn "↑T…" để theo dõi
+    r.nang = int(co_dau_hieu and Q > 0.5)
+    r.theo_doi = ("↑" + " ".join(f"T{i}" for i, v in enumerate(r.tieu_chi, start=1) if v)) \
+        if co_dau_hieu and Q <= 0.5 else ""
     r.nang_thang = int(dg.nang_thang(r.ly_do_hieu_luc, r.danh_gia, Q > 0.5))
     r.muc5 = dg.muc_cuoi5(r.muc_goc, bool(r.nang), bool(r.nang_thang), Q > 0.5, r.danh_gia)
     r.muc_fin = dg.muc3_tu_muc5(r.muc5)
     tc = ("T1 quá hạn ≥ X", "T2 dư nợ > hạn mức", f"T3 {r.so_hd_tre} hoá đơn trả trễ",
-          "T4 chưa có HĐ / credit term / khách mới nợ ≥ Y")
+          "T4 khách mới nợ ≥ Y")
     phan = [f"Tuổi nợ: {dg.MUC5[r.muc_goc]}."]
     if any(r.tieu_chi):
-        phan.append("; ".join(t for t, v in zip(tc, r.tieu_chi) if v) + (" (không nâng: khách ✓)." if r.khong_nang
-                                                                          else " → +1."))
+        phan.append("; ".join(t for t, v in zip(tc, r.tieu_chi) if v) + (
+            " (không nâng: khách ✓)." if r.khong_nang else " → +1." if r.nang else " (đang trong hạn: theo dõi, không đổi màu)."))
     r.can_cu_goc = " ".join(phan)
     if r.nang_thang:
         phan.append("Lên thẳng Đỏ (mất liên lạc / bất lợi / thất hứa).")
@@ -597,8 +603,8 @@ def tinh_full(th: TongHop, ct: ctm.ChiTiet, so: sg.SoGhi, dong_sms=None, bang=No
                        ghi_chu=tr.ghi_chu if tr else "", ly_do=hn.ly_do if hn else "",
                        ly_do_truoc=tr.ly_do if tr else "")
         # WR-13 (FIN 05/11): 3 ô Sales đánh giá — chạy lại cùng tuần giữ ô tuần này; tuần mới mang giá trị tuần trước
-        d.danh_gia = list((hn.danh_gia if hn and hn.danh_gia else None)
-                          or (tr.danh_gia if tr and tr.danh_gia else None) or th_.DANH_GIA_MAC_DINH)
+        # FIN 12/11: bỏ 3 ô Sales khỏi báo cáo → luôn giá trị mặc định (giá trị cũ trong sổ ghi không còn tác dụng)
+        d.danh_gia = list(th_.DANH_GIA_MAC_DINH)
         ngoai = so.ngoai_le.get(k.ten_chuan)
         kct = ct.khach.get(k.ten_chuan)
         if ngoai and "nhom" in ngoai:

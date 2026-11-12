@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 import openpyxl
+from openpyxl.utils import get_column_letter
 import pytest
 
 GOC = Path(__file__).resolve().parents[1]
@@ -395,7 +396,7 @@ def test_dong_con_theo_job_va_hoa_don_cong_dung_total(ws):
     assert rec.cell(r_a + 1, th.C_NHOM0).value is None and rec.cell(r_a + 1, th.C_NHOM0 + 2).value == 100, \
         "dòng con nằm đúng cột tuổi của khách (KA: 100 ở 31 - 60)"
     ct = rec.cell(rec.max_row, th.C_TOTAL).value
-    assert rec.cell(rec.max_row, 2).value == "TOTAL" and ct.startswith("=SUMIFS(F6:"), "dòng tổng là công thức"
+    assert rec.cell(rec.max_row, 2).value == "TOTAL" and ct.startswith(f"=SUMIFS({get_column_letter(th.C_TOTAL)}6:"), "dòng tổng là công thức"
     tong = sum(rec.cell(r, th.C_TOTAL).value for r in range(6, rec.max_row) if rec.cell(r, 2).value)
     assert tong == 370, "chỉ dòng khách (có Code) mới vào tổng"
     inv = wb[th.SHEET_INVOICES]

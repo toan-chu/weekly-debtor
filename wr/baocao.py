@@ -94,11 +94,6 @@ def ghi_bao_cao(
                    th.C_SALES: d.salesman, th.C_JOB: d.job, c_lw: d.ly_do_truoc or None, th.COT_LY_DO_NAY: d.ly_do}
         for k, v in enumerate(d.nhom):
             gia_tri[th.C_NHOM0 + k] = v if abs(v) > 0.4 else None
-        for k, v in zip(th.COT_DANH_GIA, d.danh_gia):
-            gia_tri[k] = v
-        if co_ar_risk:
-            gia_tri[th.C_MUC] = (f"=IFERROR(INDEX('{th.SHEET_RISK}'!${_cot_muc_risk()}:${_cot_muc_risk()},"
-                                 f"MATCH($B{hang},'{th.SHEET_RISK}'!$B:$B,0)),\"\")")
         for cot in range(1, len(th.COT) + 1):
             o = ws.cell(row=hang, column=cot, value=gia_tri.get(cot))
             o.font = Font(name=th.PHONG_NOI_DUNG, size=10)
@@ -106,7 +101,7 @@ def ghi_bao_cao(
             if cot in tien:
                 o.number_format = DINH_DANG_TIEN
                 o.alignment = Alignment(horizontal="right")
-            elif cot == 1 or cot in th.COT_DANH_GIA or cot == th.C_MUC:
+            elif cot == 1:
                 o.alignment = Alignment(horizontal="center", vertical="top")
             else:
                 # Job Number không xuống dòng (danh sách job đầy đủ nằm ở các dòng con)
@@ -118,8 +113,7 @@ def ghi_bao_cao(
             mau = (th.DO_CANH_BAO if d.nguon in {"khoi-dong-lanh", "ngoai-le", "uoc-tinh"}
                    else th.VANG_CANH_BAO)
             for cot in range(1, len(th.COT) + 1):
-                if cot != th.C_MUC:
-                    ws.cell(row=hang, column=cot).fill = PatternFill("solid", fgColor=mau)
+                ws.cell(row=hang, column=cot).fill = PatternFill("solid", fgColor=mau)
         if co_doi_chieu:
             _o_doi_chieu(ws, hang, d.doi_chieu, kieu_vien)
         cha = hang
@@ -160,18 +154,7 @@ def ghi_bao_cao(
         cl = get_column_letter(c_lw)
         dv.add(f"{cl}{dau}:{cl}{cuoi}")
         ws.add_data_validation(dv)
-        # WR-13 (FIN 05/11): 3 ô Sales đánh giá — chọn Có / Không
-        dv = DataValidation(type="list", formula1='"Có,Không"', allow_blank=True, showErrorMessage=True,
-                            errorTitle="Có / Không", error="Chọn Có hoặc Không.")
-        for k in th.COT_DANH_GIA:
-            cl = get_column_letter(k)
-            dv.add(f"{cl}{dau}:{cl}{cuoi}")
-        ws.add_data_validation(dv)
-        # WR-13: ô Mức độ tô màu kiểu Excel (Good / Neutral / Bad), chỉ tô ô
-        cl = get_column_letter(th.C_MUC)
-        for ten, (nen, chu) in th.MAU_MUC_FIN.items():
-            ws.conditional_formatting.add(f"{cl}{dau}:{cl}{cuoi}", FormulaRule(
-                formula=[f'${cl}{dau}="{ten}"'], fill=th.nen_cf(nen), font=Font(color=chu, bold=True)))
+        # FIN 12/11: Receivables không còn ô Risk level / 3 ô Sales — màu chỉ ở sheet AR Risk
     _ghi_sheet_xem_lai(wb, dong, ngay_chot, tong_misa, doi_chieu or {})
     if them_sheet:
         them_sheet(wb)
